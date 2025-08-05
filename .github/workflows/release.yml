@@ -73,12 +73,12 @@ jobs:
             Auto-generated release from main branch.
             
             ### Downloads
-            - Linux AMD64: `github-copilot-svcs-linux-amd64`
-            - Linux ARM64: `github-copilot-svcs-linux-arm64`
-            - macOS AMD64: `github-copilot-svcs-darwin-amd64`
-            - macOS ARM64: `github-copilot-svcs-darwin-arm64`
-            - Windows AMD64: `github-copilot-svcs-windows-amd64.exe`
-            - Windows ARM64: `github-copilot-svcs-windows-arm64.exe`
+            - Linux AMD64: `github-copilot-svcs-linux-amd64.gz`
+            - Linux ARM64: `github-copilot-svcs-linux-arm64.gz`
+            - macOS AMD64: `github-copilot-svcs-darwin-amd64.gz`
+            - macOS ARM64: `github-copilot-svcs-darwin-arm64.gz`
+            - Windows AMD64: `github-copilot-svcs-windows-amd64.exe.gz`
+            - Windows ARM64: `github-copilot-svcs-windows-arm64.exe.gz`
           draft: false
           prerelease: false
 
