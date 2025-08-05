@@ -1,4 +1,4 @@
-# GitHub Copilot SVCS Proxy
+# GitHub Copilot Service Proxy
 
 This project provides a reverse proxy for GitHub Copilot, exposing OpenAI-compatible endpoints for use with tools and clients that expect the OpenAI API. It follows the authentication and token management approach used by [OpenCode](https://github.com/sst/opencode).
 
@@ -21,6 +21,8 @@ This project provides a reverse proxy for GitHub Copilot, exposing OpenAI-compat
 - **Graceful Shutdown**: Proper signal handling and graceful server shutdown
 - **Comprehensive Logging**: Request/response logging for debugging and monitoring
 - **Enhanced CLI Commands**: Status monitoring, manual token refresh, and detailed configuration display
+- **Production-Ready Performance**: HTTP connection pooling, circuit breaker, request coalescing, and memory optimization
+- **Monitoring & Profiling**: Built-in pprof endpoints for memory, CPU, and goroutine analysis
 
 ## Downloads
 
@@ -37,6 +39,38 @@ Releases are automatically created when code is merged to the `main` branch:
 - Version numbers follow semantic versioning (starting from v0.0.1)
 - Cross-platform binaries are built and attached to each release
 - Release notes include download links for all supported platforms
+
+## Performance & Production Features
+
+This service includes enterprise-grade performance optimizations:
+
+### 🚀 HTTP Server Optimizations
+- **Connection Pooling**: Shared HTTP client with configurable connection limits (100 max idle, 20 per host)
+- **Configurable Timeouts**: Fully customizable timeout settings via `config.json` for all server operations
+- **Streaming Support**: Read (30s), Write (300s), and Idle (120s) timeouts optimized for AI chat streaming
+- **Long Response Handling**: HTTP client and proxy context timeouts support up to 300s (5 minutes) for extended AI conversations
+- **Request Limits**: 5MB request body size limit to prevent memory exhaustion
+- **Advanced Transport**: Configurable dial timeout (10s), TLS handshake timeout (10s), keep-alive (30s)
+
+### 🔄 Reliability & Concurrency
+- **Circuit Breaker**: Automatic failure detection and recovery (5 failure threshold, 30s timeout)
+- **Context Propagation**: Request contexts with 25s timeout and proper cancellation
+- **Request Coalescing**: Deduplicates identical concurrent requests to models endpoint
+- **Exponential Backoff**: Enhanced retry logic with circuit breaker integration
+- **Worker Pool**: Concurrent request processing with dedicated worker goroutines (CPU*2 workers)
+
+### 💾 Resource Management
+- **Buffer Pooling**: sync.Pool for request/response buffer reuse to reduce GC pressure
+- **Memory Optimization**: Streaming support with 32KB buffers for large responses
+- **Graceful Shutdown**: Proper resource cleanup and coordinated shutdown with worker pool termination
+- **Shared Clients**: Centralized HTTP client eliminates resource duplication
+- **Worker Pool Management**: Automatic worker lifecycle management with graceful termination
+
+### 📊 Monitoring & Observability
+- **Profiling Endpoints**: `/debug/pprof/*` for memory, CPU, and goroutine analysis
+- **Enhanced Logging**: Circuit breaker state, request coalescing, worker pool metrics, and performance data
+- **Health Monitoring**: Detailed `/health` endpoint for load balancer integration
+- **Production Metrics**: Built-in support for operational monitoring and worker pool status
 
 ## Quickstart with Makefile
 
@@ -60,14 +94,21 @@ make build
 go build -o github-copilot-svcs
 ```
 
-### 2. First Time Setup & Authentication
+### 2. Optional: Configure Timeouts
+```bash
+# Copy example config and customize timeout values
+cp config.example.json ~/.local/share/github-copilot-svcs/config.json
+# Edit the timeouts section as needed
+```
+
+### 3. First Time Setup & Authentication
 ```bash
 make auth
 # or manually:
 ./github-copilot-svcs auth
 ```
 
-### 3. Start the Proxy Server
+### 4. Start the Proxy Server
 ```bash
 make run
 # or manually:
@@ -139,6 +180,15 @@ GET http://localhost:8081/v1/models
 GET http://localhost:8081/health
 ```
 
+### Profiling Endpoints (Production Monitoring)
+```bash
+GET http://localhost:8081/debug/pprof/          # Overview of available profiles
+GET http://localhost:8081/debug/pprof/heap      # Memory heap profile
+GET http://localhost:8081/debug/pprof/goroutine # Goroutine profile
+GET http://localhost:8081/debug/pprof/profile   # CPU profile (30s sampling)
+GET http://localhost:8081/debug/pprof/trace     # Execution trace
+```
+
 ## Reliability & Error Handling
 
 ### Automatic Token Management
@@ -182,7 +232,19 @@ The configuration is stored in `~/.local/share/github-copilot-svcs/config.json`:
   "github_token": "gho_...",
   "copilot_token": "ghu_...",
   "expires_at": 1720000000,
-  "refresh_in": 1500
+  "refresh_in": 1500,
+  "timeouts": {
+    "http_client": 300,
+    "server_read": 30,
+    "server_write": 300,
+    "server_idle": 120,
+    "proxy_context": 300,
+    "circuit_breaker": 30,
+    "keep_alive": 30,
+    "tls_handshake": 10,
+    "dial_timeout": 10,
+    "idle_conn_timeout": 90
+  }
 }
 ```
 
@@ -193,6 +255,32 @@ The configuration is stored in `~/.local/share/github-copilot-svcs/config.json`:
 - `copilot_token`: GitHub Copilot API token
 - `expires_at`: Unix timestamp when the Copilot token expires
 - `refresh_in`: Seconds until token should be refreshed (typically 1500 = 25 minutes)
+
+### Timeout Configuration
+
+All timeout values are specified in seconds and have sensible defaults:
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `http_client` | 300 | HTTP client timeout for outbound requests to GitHub Copilot API |
+| `server_read` | 30 | Server timeout for reading incoming requests |
+| `server_write` | 300 | Server timeout for writing responses (increased for streaming) |
+| `server_idle` | 120 | Server timeout for idle connections |
+| `proxy_context` | 300 | Request context timeout for proxy operations |
+| `circuit_breaker` | 30 | Circuit breaker recovery timeout when API is failing |
+| `keep_alive` | 30 | TCP keep-alive timeout for HTTP connections |
+| `tls_handshake` | 10 | TLS handshake timeout |
+| `dial_timeout` | 10 | Connection dial timeout |
+| `idle_conn_timeout` | 90 | Idle connection timeout in connection pool |
+
+**Streaming Support**: The service is optimized for long-running streaming chat completions with timeouts up to 300 seconds (5 minutes) to support extended AI conversations.
+
+**Custom Configuration**: You can copy `config.example.json` as a starting point and modify timeout values based on your environment:
+
+```bash
+cp config.example.json ~/.local/share/github-copilot-svcs/config.json
+# Edit the timeouts section as needed
+```
 
 ## Authentication Flow
 

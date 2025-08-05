@@ -17,11 +17,11 @@ const (
 	copilotAPIKeyURL     = "https://api.github.com/copilot_internal/v2/token"
 	copilotClientID      = "Iv1.b507a08c87ecfe98"
 	copilotScope         = "read:user"
-	userAgent           = "GitHubCopilotChat/0.26.7"
-	
+	userAgent            = "GitHubCopilotChat/0.26.7"
+
 	// Retry configuration
 	maxRefreshRetries = 3
-	baseRetryDelay   = 2 // seconds
+	baseRetryDelay    = 2 // seconds
 )
 
 type deviceCodeResponse struct {
@@ -53,7 +53,7 @@ func authenticate(cfg *Config) error {
 		log.Printf("Token still valid: expires in %d seconds", cfg.ExpiresAt-now)
 		return nil // Already authenticated
 	}
-	
+
 	if cfg.CopilotToken != "" {
 		log.Printf("Token expired or expiring soon: expires in %d seconds, triggering re-auth", cfg.ExpiresAt-now)
 	} else {
@@ -72,8 +72,7 @@ func authenticate(cfg *Config) error {
 	body := fmt.Sprintf(`{"client_id":"%s","scope":"%s"}`, copilotClientID, copilotScope)
 	req.Body = io.NopCloser(strings.NewReader(body))
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -127,8 +126,7 @@ func pollForGitHubToken(deviceCode string, interval int) (string, error) {
 			copilotClientID, deviceCode)
 		req.Body = io.NopCloser(strings.NewReader(body))
 
-		client := &http.Client{}
-		resp, err := client.Do(req)
+		resp, err := sharedHTTPClient.Do(req)
 		if err != nil {
 			continue
 		}
@@ -160,8 +158,7 @@ func getCopilotToken(githubToken string) (string, int64, int64, error) {
 	req.Header.Set("Authorization", "token "+githubToken)
 	req.Header.Set("User-Agent", userAgent)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return "", 0, 0, err
 	}
@@ -188,14 +185,14 @@ func refreshToken(cfg *Config) error {
 	// Retry with exponential backoff
 	for attempt := 1; attempt <= maxRefreshRetries; attempt++ {
 		log.Printf("Attempting to refresh Copilot token (attempt %d/%d)", attempt, maxRefreshRetries)
-		
+
 		copilotToken, expiresAt, refreshIn, err := getCopilotToken(cfg.GitHubToken)
 		if err != nil {
 			if attempt == maxRefreshRetries {
 				log.Printf("Token refresh failed after %d attempts: %v", maxRefreshRetries, err)
 				return err
 			}
-			
+
 			// Wait before retry with exponential backoff
 			waitTime := time.Duration(baseRetryDelay*attempt*attempt) * time.Second
 			log.Printf("Token refresh failed (attempt %d), retrying in %v: %v", attempt, waitTime, err)
@@ -210,6 +207,6 @@ func refreshToken(cfg *Config) error {
 
 		return saveConfig(cfg)
 	}
-	
+
 	return errors.New("maximum retry attempts exceeded")
 }

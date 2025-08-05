@@ -20,6 +20,9 @@ func setupGracefulShutdown(server *http.Server) {
 		<-c
 		fmt.Println("\nGracefully shutting down...")
 
+		// Stop worker pool
+		globalWorkerPool.Stop()
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 

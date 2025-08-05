@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"time"
 )
 
@@ -18,6 +17,20 @@ type Config struct {
 	CopilotToken string `json:"copilot_token"`
 	ExpiresAt    int64  `json:"expires_at"`
 	RefreshIn    int64  `json:"refresh_in"`
+
+	// Timeout configurations (in seconds)
+	Timeouts struct {
+		HTTPClient      int `json:"http_client"`       // Default: 300s for streaming responses
+		ServerRead      int `json:"server_read"`       // Default: 30s for request reading
+		ServerWrite     int `json:"server_write"`      // Default: 300s for streaming responses
+		ServerIdle      int `json:"server_idle"`       // Default: 120s for idle connections
+		ProxyContext    int `json:"proxy_context"`     // Default: 300s for proxy request context
+		CircuitBreaker  int `json:"circuit_breaker"`   // Default: 30s for circuit breaker recovery
+		KeepAlive       int `json:"keep_alive"`        // Default: 30s for connection keep-alive
+		TLSHandshake    int `json:"tls_handshake"`     // Default: 10s for TLS handshake
+		DialTimeout     int `json:"dial_timeout"`      // Default: 10s for connection dialing
+		IdleConnTimeout int `json:"idle_conn_timeout"` // Default: 90s for idle connection timeout
+	} `json:"timeouts"`
 }
 
 const (
@@ -56,21 +69,6 @@ func getDefaultModels() []Model {
 		{ID: "gemini-2.5-pro", Object: "model", Created: time.Now().Unix(), OwnedBy: "google"},
 		{ID: "gemini-2.0-flash-001", Object: "model", Created: time.Now().Unix(), OwnedBy: "google"},
 	}
-}
-
-func promptForPort() int {
-	fmt.Print("Enter port to run the proxy on (default 8080): ")
-	var input string
-	fmt.Scanln(&input)
-	if input == "" {
-		return 8080
-	}
-	port, err := strconv.Atoi(input)
-	if err != nil || port < 1 || port > 65535 {
-		fmt.Println("Invalid port, using default 8080.")
-		return 8080
-	}
-	return port
 }
 
 func main() {

@@ -38,8 +38,7 @@ func fetchModelsFromCopilotAPI(token string) (*ModelList, error) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", userAgent)
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -125,48 +124,51 @@ func containsAny(text string, substrings []string) bool {
 
 func modelsHandler(cfg *Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Check cache first
-		modelsMutex.RLock()
-		if modelsLoaded && cachedModels != nil {
-			log.Printf("Returning cached models (%d models)", len(cachedModels.Data))
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(cachedModels)
-			modelsMutex.RUnlock()
-			return
-		}
-		modelsMutex.RUnlock()
+		// Use request coalescing for identical concurrent requests
+		requestKey := modelsCoalescingCache.getRequestKey("GET", "/v1/models", nil)
 
-		// Load models if not cached
-		modelsMutex.Lock()
-		defer modelsMutex.Unlock()
-
-		// Double-check in case another goroutine loaded while we waited
-		if modelsLoaded && cachedModels != nil {
-			log.Printf("Returning cached models (%d models)", len(cachedModels.Data))
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(cachedModels)
-			return
-		}
-
-		log.Printf("Loading models for the first time...")
-
-		// Try models.dev API first (don't hit GitHub Copilot for models list)
-		modelList, err := fetchModelsFromModelsDev()
-		if err != nil {
-			log.Printf("Failed to fetch from models.dev: %v, using default models", err)
-
-			// Ultimate fallback to hardcoded models
-			modelList = &ModelList{
-				Object: "list",
-				Data:   getDefaultModels(),
+		result := modelsCoalescingCache.CoalesceRequest(requestKey, func() interface{} {
+			// Check cache first
+			modelsMutex.RLock()
+			if modelsLoaded && cachedModels != nil {
+				modelsMutex.RUnlock()
+				return cachedModels
 			}
-		}
+			modelsMutex.RUnlock()
 
-		// Cache the results
-		cachedModels = modelList
-		modelsLoaded = true
+			// Load models if not cached
+			modelsMutex.Lock()
+			defer modelsMutex.Unlock()
 
-		log.Printf("Loaded and cached %d models", len(modelList.Data))
+			// Double-check in case another goroutine loaded while we waited
+			if modelsLoaded && cachedModels != nil {
+				return cachedModels
+			}
+
+			log.Printf("Loading models for the first time...")
+
+			// Try models.dev API first (don't hit GitHub Copilot for models list)
+			modelList, err := fetchModelsFromModelsDev()
+			if err != nil {
+				log.Printf("Failed to fetch from models.dev: %v, using default models", err)
+
+				// Ultimate fallback to hardcoded models
+				modelList = &ModelList{
+					Object: "list",
+					Data:   getDefaultModels(),
+				}
+			}
+
+			// Cache the results
+			cachedModels = modelList
+			modelsLoaded = true
+
+			log.Printf("Loaded and cached %d models", len(modelList.Data))
+			return modelList
+		})
+
+		modelList := result.(*ModelList)
+		log.Printf("Returning models (%d models)", len(modelList.Data))
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(modelList); err != nil {

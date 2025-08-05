@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 )
@@ -26,6 +27,9 @@ func handleAuth() error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
+
+	// Initialize timeout configurations before any HTTP operations
+	initializeTimeouts(cfg)
 
 	fmt.Println("Starting GitHub Copilot authentication...")
 	if err := authenticate(cfg); err != nil {
@@ -51,13 +55,13 @@ func handleStatus() error {
 	now := getCurrentTime()
 	if cfg.CopilotToken != "" {
 		fmt.Printf("Authentication: ✓ Authenticated\n")
-		
+
 		timeUntilExpiry := cfg.ExpiresAt - now
 		if timeUntilExpiry > 0 {
 			minutes := timeUntilExpiry / 60
 			seconds := timeUntilExpiry % 60
 			fmt.Printf("Token expires: in %dm %ds (%d seconds)\n", minutes, seconds, timeUntilExpiry)
-			
+
 			// Show refresh timing
 			if cfg.RefreshIn > 0 {
 				refreshThreshold := cfg.RefreshIn / 5 // 20%
@@ -74,7 +78,7 @@ func handleStatus() error {
 			fmt.Printf("Token expires: ⚠️  EXPIRED (%d seconds ago)\n", -timeUntilExpiry)
 			fmt.Printf("Status: ❌ Token needs refresh\n")
 		}
-		
+
 		fmt.Printf("Has GitHub token: %t\n", cfg.GitHubToken != "")
 		if cfg.RefreshIn > 0 {
 			fmt.Printf("Refresh interval: %d seconds\n", cfg.RefreshIn)
@@ -115,6 +119,9 @@ func handleRun() error {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
+	// Initialize timeout configurations before any HTTP operations
+	initializeTimeouts(cfg)
+
 	// Ensure we're authenticated
 	if err := ensureValidToken(cfg); err != nil {
 		return fmt.Errorf("authentication failed: %v", err)
@@ -126,6 +133,12 @@ func handleRun() error {
 	mux.HandleFunc("/v1/models", modelsHandler(cfg))
 	mux.HandleFunc("/v1/chat/completions", proxyHandler(cfg))
 	mux.HandleFunc("/health", healthHandler)
+	// Add pprof endpoints for profiling
+	mux.HandleFunc("/debug/pprof/", http.DefaultServeMux.ServeHTTP)
+	mux.HandleFunc("/debug/pprof/cmdline", http.DefaultServeMux.ServeHTTP)
+	mux.HandleFunc("/debug/pprof/profile", http.DefaultServeMux.ServeHTTP)
+	mux.HandleFunc("/debug/pprof/symbol", http.DefaultServeMux.ServeHTTP)
+	mux.HandleFunc("/debug/pprof/trace", http.DefaultServeMux.ServeHTTP)
 
 	port := cfg.Port
 	if port == 0 {
@@ -133,8 +146,11 @@ func handleRun() error {
 	}
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: mux,
+		Addr:         fmt.Sprintf(":%d", port),
+		Handler:      mux,
+		ReadTimeout:  time.Duration(cfg.Timeouts.ServerRead) * time.Second,
+		WriteTimeout: time.Duration(cfg.Timeouts.ServerWrite) * time.Second,
+		IdleTimeout:  time.Duration(cfg.Timeouts.ServerIdle) * time.Second,
 	}
 
 	setupGracefulShutdown(server)
@@ -157,6 +173,9 @@ func handleModels() error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
+
+	// Initialize timeout configurations before any HTTP operations
+	initializeTimeouts(cfg)
 
 	// Ensure we're authenticated
 	if err := ensureValidToken(cfg); err != nil {
@@ -189,6 +208,9 @@ func handleRefresh() error {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
+	// Initialize timeout configurations before any HTTP operations
+	initializeTimeouts(cfg)
+
 	if cfg.CopilotToken == "" {
 		return fmt.Errorf("no token to refresh - run 'auth' command first")
 	}
@@ -199,13 +221,13 @@ func handleRefresh() error {
 	}
 
 	fmt.Printf("✅ Token refresh successful!\n")
-	
+
 	// Show new expiration time
 	now := getCurrentTime()
 	timeUntilExpiry := cfg.ExpiresAt - now
 	minutes := timeUntilExpiry / 60
 	seconds := timeUntilExpiry % 60
 	fmt.Printf("New token expires in: %dm %ds\n", minutes, seconds)
-	
+
 	return nil
 }
