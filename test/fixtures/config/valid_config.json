@@ -1,5 +1,9 @@
 {
   "port": 8081,
+  "github_token": "",
+  "copilot_token": "",
+  "expires_at": 0,
+  "refresh_in": 3600,
   "headers": {
     "user_agent": "GitHubCopilotChat/0.29.1",
     "editor_version": "vscode/1.102.3",

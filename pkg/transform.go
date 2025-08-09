@@ -1,4 +1,4 @@
-package main
+package transform
 
 // OpenAI-compatible request/response structures
 type ChatCompletionRequest struct {

@@ -1,0 +1,23 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gpt-4o",
+      "object": "model",
+      "created": 1687882411,
+      "owned_by": "openai"
+    },
+    {
+      "id": "claude-3.5-sonnet",
+      "object": "model",
+      "created": 1687882411,
+      "owned_by": "anthropic"
+    },
+    {
+      "id": "gemini-2.0-flash-001",
+      "object": "model",
+      "created": 1687882411,
+      "owned_by": "google"
+    }
+  ]
+}

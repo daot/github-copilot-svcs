@@ -7,13 +7,13 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: '1.23'
 
       - name: Get next version
         id: version
@@ -59,29 +59,6 @@ jobs:
           git tag ${{ steps.version.outputs.version }}
           git push origin ${{ steps.version.outputs.version }}
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.version.outputs.version }}
-          release_name: Release ${{ steps.version.outputs.version }}
-          body: |
-            ## Changes in ${{ steps.version.outputs.version }}
-            
-            Auto-generated release from main branch.
-            
-            ### Downloads
-            - Linux AMD64: `github-copilot-svcs-linux-amd64.gz`
-            - Linux ARM64: `github-copilot-svcs-linux-arm64.gz`
-            - macOS AMD64: `github-copilot-svcs-darwin-amd64.gz`
-            - macOS ARM64: `github-copilot-svcs-darwin-arm64.gz`
-            - Windows AMD64: `github-copilot-svcs-windows-amd64.exe.gz`
-            - Windows ARM64: `github-copilot-svcs-windows-arm64.exe.gz`
-          draft: false
-          prerelease: false
-
   build:
     needs: release
     runs-on: ubuntu-latest
@@ -114,7 +91,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: '1.23'
 
       - name: Build binary
         env:
@@ -123,7 +100,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           BINARY_NAME="github-copilot-svcs-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
-          go build -ldflags="-s -w -X main.version=${{ needs.release.outputs.version }}" -o "$BINARY_NAME" .
+          go build -ldflags="-s -w -X main.version=${{ needs.release.outputs.version }}" -o "$BINARY_NAME" ./cmd/github-copilot-svcs
           
           # Make the binary executable (important for Unix systems)
           chmod +x "$BINARY_NAME"
@@ -136,11 +113,60 @@ jobs:
           ls -la "$GZ_BINARY_NAME"
 
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ./github-copilot-svcs-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}.gz
-          asset_name: github-copilot-svcs-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}.gz
-          asset_content_type: application/gzip
+          tag_name: ${{ needs.release.outputs.version }}
+          files: ./github-copilot-svcs-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}.gz
+          body: |
+            ## Changes in ${{ needs.release.outputs.version }}
+            
+            Auto-generated release from main branch.
+            
+            ### Downloads
+            - Linux AMD64: `github-copilot-svcs-linux-amd64.gz`
+            - Linux ARM64: `github-copilot-svcs-linux-arm64.gz`
+            - macOS AMD64: `github-copilot-svcs-darwin-amd64.gz`
+            - macOS ARM64: `github-copilot-svcs-darwin-arm64.gz`
+            - Windows AMD64: `github-copilot-svcs-windows-amd64.exe.gz`
+            - Windows ARM64: `github-copilot-svcs-windows-arm64.exe.gz`
+
+  docker:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.release.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

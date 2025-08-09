@@ -1,0 +1,26 @@
+# Build artifacts
+github-copilot-svcs
+github-copilot-svcs-*
+*.exe
+
+# Go build cache
+.go-build-cache
+
+# Test artifacts
+coverage.out
+coverage.html
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Config files (sensitive)
+config.json

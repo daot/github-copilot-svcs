@@ -33,6 +33,22 @@ Available platforms:
 - **macOS**: AMD64 (Intel), ARM64 (Apple Silicon) 
 - **Windows**: AMD64, ARM64
 
+### Docker Images
+
+Docker images are automatically built and published to GitHub Container Registry via GitHub Actions:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/privapps/github-copilot-svcs:latest
+
+# Pull a specific version (example)
+docker pull ghcr.io/privapps/github-copilot-svcs:v0.0.2
+```
+
+Available architectures:
+- `linux/amd64`
+- `linux/arm64`
+
 ### Automated Releases
 
 Releases are automatically created when code is merged to the `main` branch:
@@ -68,9 +84,8 @@ This service includes enterprise-grade performance optimizations:
 
 ### 📊 Monitoring & Observability
 - **Profiling Endpoints**: `/debug/pprof/*` for memory, CPU, and goroutine analysis
-- **Enhanced Logging**: Circuit breaker state, request coalescing, worker pool metrics, and performance data
+- **Enhanced Logging**: Circuit breaker state, request coalescing, and performance data
 - **Health Monitoring**: Detailed `/health` endpoint for load balancer integration
-- **Production Metrics**: Built-in support for operational monitoring and worker pool status
 
 ## Quickstart with Makefile
 
@@ -79,11 +94,30 @@ If you have `make` installed, you can build, run, and test the project easily:
 ```bash
 make build      # Build the binary
 make run        # Start the proxy server
-make auth       # Authenticate with GitHub Copilot
-make models     # List available models
-make config     # Show current configuration
+make test       # Run unit tests
+make test-all   # Run all tests
+make test-coverage # Generate coverage report
 make clean      # Remove the binary
+make lint       # Run linting
+make fmt        # Format code
+make vet        # Run go vet
+make security   # Run security analysis
+make docker-build       # Build Docker image
+make docker-run         # Run Docker container
 ```
+
+## Building for Different OS/Architectures
+
+You can build binaries for different platforms using the following Makefile targets:
+
+- `make build-linux-amd64`      Build for Linux amd64
+- `make build-linux-arm64`      Build for Linux arm64
+- `make build-darwin-amd64`     Build for macOS amd64
+- `make build-darwin-arm64`     Build for macOS arm64
+- `make build-windows-amd64`    Build for Windows amd64
+- `make build-windows-arm64`    Build for Windows arm64
+
+The output binaries will be named accordingly (e.g., `github-copilot-svcs-windows-arm64.exe`).
 
 ## Installation & Usage
 
@@ -103,8 +137,6 @@ cp config.example.json ~/.local/share/github-copilot-svcs/config.json
 
 ### 3. First Time Setup & Authentication
 ```bash
-make auth
-# or manually:
 ./github-copilot-svcs auth
 ```
 
@@ -112,14 +144,48 @@ make auth
 ```bash
 make run
 # or manually:
-./github-copilot-svcs run
+./github-copilot-svcs start
+```
+
+## Docker Deployment
+
+### Using Docker Compose (Recommended)
+```bash
+# Create config directory
+mkdir -p ./config
+
+# Start the service
+docker-compose up -d
+
+# Authenticate (first time only)
+docker-compose exec github-copilot-svcs ./github-copilot-svcs auth
+
+# View logs
+docker-compose logs -f
+```
+
+### Using Docker Run
+```bash
+# Create a config volume
+docker volume create copilot-config
+
+# Run the container
+docker run -d \
+  --name github-copilot-svcs \
+  -p 8081:8081 \
+  -v copilot-config:/root/.local/share/github-copilot-svcs \
+  -e LOG_LEVEL=info \
+  ghcr.io/privapps/github-copilot-svcs:latest
+
+# Authenticate (first time only)
+docker exec -it github-copilot-svcs ./github-copilot-svcs auth
 ```
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `run`    | Start the proxy server |
+| `start` | Start the proxy server (default command) |
 | `auth`   | Authenticate with GitHub Copilot using device flow |
 | `status` | Show detailed authentication and token status |
 | `config` | Display current configuration details |
@@ -130,10 +196,11 @@ make run
 
 ### Enhanced Status Monitoring
 
-The `status` command now provides detailed token information:
+The `status` command now provides detailed token information with optional JSON output:
 
 ```bash
 ./github-copilot-svcs status
+./github-copilot-svcs status --json  # JSON format output
 ```
 
 Example output:
@@ -224,6 +291,7 @@ Chat completion requests are automatically retried to handle transient failures:
 
 ## Configuration
 
+
 The configuration is stored in `~/.local/share/github-copilot-svcs/config.json`:
 
 ```json
@@ -233,6 +301,14 @@ The configuration is stored in `~/.local/share/github-copilot-svcs/config.json`:
   "copilot_token": "ghu_...",
   "expires_at": 1720000000,
   "refresh_in": 1500,
+  "headers": {
+    "user_agent": "GitHubCopilotChat/0.29.1",
+    "editor_version": "vscode/1.102.3",
+    "editor_plugin_version": "copilot-chat/0.29.1",
+    "copilot_integration_id": "vscode-chat",
+    "openai_intent": "conversation-edits",
+    "x_initiator": "user"
+  },
   "timeouts": {
     "http_client": 300,
     "server_read": 30,
@@ -248,6 +324,7 @@ The configuration is stored in `~/.local/share/github-copilot-svcs/config.json`:
 }
 ```
 
+
 ### Configuration Fields
 
 - `port`: Server port (default: 8081)
@@ -255,6 +332,21 @@ The configuration is stored in `~/.local/share/github-copilot-svcs/config.json`:
 - `copilot_token`: GitHub Copilot API token
 - `expires_at`: Unix timestamp when the Copilot token expires
 - `refresh_in`: Seconds until token should be refreshed (typically 1500 = 25 minutes)
+- `headers`: (optional) HTTP headers to use for all Copilot API requests (see below)
+### HTTP Headers Configuration
+
+The `headers` section allows you to customize the HTTP headers sent to the Copilot API. All fields are optional; defaults are shown below:
+
+| Field                    | Default Value                  | Description                                      |
+|--------------------------|-------------------------------|--------------------------------------------------|
+| `user_agent`             | GitHubCopilotChat/0.29.1      | User-Agent header for all requests                |
+| `editor_version`         | vscode/1.102.3                | Editor-Version header                             |
+| `editor_plugin_version`  | copilot-chat/0.29.1           | Editor-Plugin-Version header                      |
+| `copilot_integration_id` | vscode-chat                   | Copilot-Integration-Id header                     |
+| `openai_intent`          | conversation-edits             | Openai-Intent header                              |
+| `x_initiator`            | user                           | X-Initiator header                                |
+
+You can override any of these by editing your `config.json`.
 
 ### Timeout Configuration
 
@@ -333,7 +425,7 @@ The proxy automatically maps common model names to GitHub Copilot models:
 curl http://localhost:8081/health
 
 # View logs (if running in foreground)
-./github-copilot-svcs run
+./github-copilot-svcs start
 ```
 
 ### Port Conflicts
@@ -387,19 +479,6 @@ print(response)
 
 ## Development
 
-### Project Structure
-```
-github-copilot-svcs/
-├── main.go        # Main application and CLI
-├── auth.go        # GitHub Copilot authentication
-├── proxy.go       # Reverse proxy implementation
-├── server.go      # Server utilities and graceful shutdown
-├── transform.go   # Request/response transformation
-├── cli.go         # CLI command handling
-├── go.mod         # Go module definition
-└── README.md      # This documentation
-```
-
 ### Building from Source
 ```bash
 git clone <repository>
@@ -407,15 +486,30 @@ cd github-copilot-svcs
 make build
 # or manually:
 go mod tidy
-go build -o github-copilot-svcs
+go build -o github-copilot-svcs ./cmd/github-copilot-svcs
 ```
 
 ### Running Tests
 ```bash
-make test
+make test          # Run unit tests
+make test-all      # Run all tests (unit + integration)
+make test-coverage # Run tests with coverage report
 # or manually:
-go test ./...
+go test ./test/...
 ```
+
+### Test Coverage
+The project includes comprehensive test coverage:
+- **Unit Tests**: Testing individual components (auth, config, logger)
+- **Integration Tests**: Testing API endpoints and server functionality  
+- **Coverage Reports**: HTML and terminal coverage reports available
+
+Generate coverage reports:
+```bash
+make test-coverage  # Generates coverage.html and shows terminal summary
+```
+
+Current test coverage: **~45%** across all packages, with excellent coverage in core components like logging (95%+) and configuration (58%+).
 
 ## License
 
@@ -425,15 +519,53 @@ This is free software: you are free to change and redistribute it under the term
 
 ## Contributing
 
+We welcome contributions! Please follow these guidelines:
+
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create a feature branch (use descriptive names)
+3. Make your changes (follow Go code style and best practices)
+4. Add or update tests as needed
+5. Run all tests and ensure coverage is not reduced
+6. Document your changes in the README if relevant
+7. Submit a pull request with a clear description
+
+### Commit Messages
+- Use clear, descriptive commit messages
+- Reference related issues (e.g., `Fixes #123`)
+
+### Pull Request Review
+- All PRs require review by a maintainer
+- Address review comments promptly
+
+## Security
+
+- Tokens and secrets are stored securely in the user's home directory with restricted permissions (0700)
+- No sensitive data is logged
+- All communication with GitHub Copilot uses HTTPS
+- Automatic token refresh prevents long-lived token exposure
+- Do not commit secrets or sensitive config files; check your `.gitignore`
+- For security issues, please contact the maintainers directly
+
+## FAQ / Common Issues
+
+**Q: Authentication fails or times out**
+A: Run `./github-copilot-svcs auth` again and check your network connection. Ensure your GitHub account has Copilot access.
+
+**Q: Service won't start or port is in use**
+A: Edit your config file to use a different port, or stop the conflicting service.
+
+**Q: Token expires too quickly**
+A: Check your system clock and ensure the refresh interval in config is set correctly.
+
+**Q: How do I update configuration?**
+A: Edit `~/.local/share/github-copilot-svcs/config.json` or use environment variables if supported.
+
+**Q: How do I report a bug or request a feature?**
+A: Open an issue on GitHub with details about your environment and the problem.
 
 ## Support
 
 For issues and questions:
-1. Check the troubleshooting section
+1. Check the troubleshooting and FAQ sections
 2. Review the logs for error messages
 3. Open an issue with detailed information about your setup and the problem
