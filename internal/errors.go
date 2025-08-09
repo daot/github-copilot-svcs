@@ -1,3 +1,4 @@
+// Package internal provides error types and helpers for github-copilot-svcs.
 package internal
 
 import (
@@ -5,15 +6,14 @@ import (
 	"net/http"
 )
 
-// Error types for different categories of errors
 type (
-	// AuthenticationError represents authentication-related errors
+	// AuthenticationError ...
 	AuthenticationError struct {
 		Message string
 		Err     error
 	}
 
-	// ConfigurationError represents configuration-related errors
+	// ConfigurationError ...
 	ConfigurationError struct {
 		Field   string
 		Value   interface{}
@@ -21,7 +21,7 @@ type (
 		Err     error
 	}
 
-	// NetworkError represents network-related errors
+	// NetworkError ...
 	NetworkError struct {
 		Operation string
 		URL       string
@@ -29,7 +29,7 @@ type (
 		Err       error
 	}
 
-	// ValidationError represents validation errors
+	// ValidationError ...
 	ValidationError struct {
 		Field   string
 		Value   interface{}
@@ -37,7 +37,7 @@ type (
 		Err     error
 	}
 
-	// ProxyError represents proxy operation errors
+	// ProxyError ...
 	ProxyError struct {
 		Operation string
 		Message   string
@@ -45,7 +45,6 @@ type (
 	}
 )
 
-// Error implementations
 func (e *AuthenticationError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("authentication error: %s: %v", e.Message, e.Err)
@@ -101,87 +100,101 @@ func (e *ProxyError) Unwrap() error {
 	return e.Err
 }
 
-// Error constructors for common scenarios
+// NewAuthError ...
 func NewAuthError(message string, err error) *AuthenticationError {
 	return &AuthenticationError{Message: message, Err: err}
 }
 
+// NewConfigError ...
 func NewConfigError(field string, value interface{}, message string, err error) *ConfigurationError {
 	return &ConfigurationError{Field: field, Value: value, Message: message, Err: err}
 }
 
+// NewNetworkError ...
 func NewNetworkError(operation, url, message string, err error) *NetworkError {
 	return &NetworkError{Operation: operation, URL: url, Message: message, Err: err}
 }
 
+// NewValidationError ...
 func NewValidationError(field string, value interface{}, message string, err error) *ValidationError {
 	return &ValidationError{Field: field, Value: value, Message: message, Err: err}
 }
 
+// NewProxyError ...
 func NewProxyError(operation, message string, err error) *ProxyError {
 	return &ProxyError{Operation: operation, Message: message, Err: err}
 }
 
-// HTTP error helpers
+// WriteHTTPError ...
 func WriteHTTPError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	fmt.Fprintf(w, `{"error": {"message": "%s", "type": "error", "code": %d}}`, message, statusCode)
+	_, _ = fmt.Fprintf(w, `{"error": {"message": "%s", "type": "error", "code": %d}}`, message, statusCode)
 }
 
+// WriteHTTPErrorWithDetails ...
 func WriteHTTPErrorWithDetails(w http.ResponseWriter, statusCode int, errorType, message, details string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	fmt.Fprintf(w, `{"error": {"message": "%s", "type": "%s", "code": %d, "details": "%s"}}`,
+	_, _ = fmt.Fprintf(w, `{"error": {"message": "%s", "type": "%s", "code": %d, "details": "%s"}}`,
 		message, errorType, statusCode, details)
 }
 
-// Common HTTP error responses
+// WriteAuthenticationError ...
 func WriteAuthenticationError(w http.ResponseWriter) {
 	WriteHTTPError(w, http.StatusUnauthorized, "Authentication required")
 }
 
+// WriteAuthorizationError ...
 func WriteAuthorizationError(w http.ResponseWriter) {
 	WriteHTTPError(w, http.StatusForbidden, "Insufficient permissions")
 }
 
+// WriteValidationError ...
 func WriteValidationError(w http.ResponseWriter, message string) {
 	WriteHTTPError(w, http.StatusBadRequest, message)
 }
 
+// WriteInternalError ...
 func WriteInternalError(w http.ResponseWriter) {
 	WriteHTTPError(w, http.StatusInternalServerError, "Internal server error")
 }
 
+// WriteServiceUnavailableError ...
 func WriteServiceUnavailableError(w http.ResponseWriter) {
 	WriteHTTPError(w, http.StatusServiceUnavailable, "Service temporarily unavailable")
 }
 
+// WriteRateLimitError ...
 func WriteRateLimitError(w http.ResponseWriter) {
 	WriteHTTPError(w, http.StatusTooManyRequests, "Rate limit exceeded")
 }
 
-// Error classification helpers
+// IsAuthenticationError ...
 func IsAuthenticationError(err error) bool {
 	_, ok := err.(*AuthenticationError)
 	return ok
 }
 
+// IsConfigurationError ...
 func IsConfigurationError(err error) bool {
 	_, ok := err.(*ConfigurationError)
 	return ok
 }
 
+// IsNetworkError ...
 func IsNetworkError(err error) bool {
 	_, ok := err.(*NetworkError)
 	return ok
 }
 
+// IsValidationError ...
 func IsValidationError(err error) bool {
 	_, ok := err.(*ValidationError)
 	return ok
 }
 
+// IsProxyError ...
 func IsProxyError(err error) bool {
 	_, ok := err.(*ProxyError)
 	return ok

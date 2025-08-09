@@ -1,3 +1,4 @@
+// Package testutils provides helpers for testing github-copilot-svcs.
 package testutils
 
 import (
@@ -17,6 +18,7 @@ const (
 	testRefreshIn = 3600
 )
 
+// MockConfig returns a test configuration for use in unit tests.
 func MockConfig() *internal.Config {
 	cfg := &internal.Config{
 		Port:         testPort,
@@ -54,7 +56,9 @@ func SetupTestDir(t *testing.T) string {
 	}
 
 	t.Cleanup(func() {
-		os.RemoveAll(dir)
+		if err := os.RemoveAll(dir); err != nil {
+	panic(err)
+}
 	})
 
 	return dir
@@ -101,20 +105,32 @@ func MockGitHubServer() *httptest.Server {
 
 // SetupValidToken sets up environment for valid token tests
 func SetupValidToken() {
-	os.Setenv("GITHUB_TOKEN", "valid-token")
+	if err := os.Setenv("GITHUB_TOKEN", "valid-token"); err != nil {
+		panic(err)
+	}
 }
 
 // SetupInvalidToken sets up environment for invalid token tests
 func SetupInvalidToken() {
-	os.Setenv("GITHUB_TOKEN", "invalid-token")
+	if err := os.Setenv("GITHUB_TOKEN", "invalid-token"); err != nil {
+		panic(err)
+	}
 }
 
 // CleanupEnv cleans up test environment variables
 func CleanupEnv() {
-	os.Unsetenv("GITHUB_TOKEN")
-	os.Unsetenv("COPILOT_TOKEN")
-	os.Unsetenv("COPILOT_PORT")
-	os.Unsetenv("LOG_LEVEL")
+	if err := os.Unsetenv("GITHUB_TOKEN"); err != nil {
+		panic(err)
+	}
+	if err := os.Unsetenv("COPILOT_TOKEN"); err != nil {
+		panic(err)
+	}
+	if err := os.Unsetenv("COPILOT_PORT"); err != nil {
+		panic(err)
+	}
+	if err := os.Unsetenv("LOG_LEVEL"); err != nil {
+		panic(err)
+	}
 }
 
 // InitLogger initializes the logger for tests

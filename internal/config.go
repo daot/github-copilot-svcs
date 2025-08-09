@@ -217,6 +217,7 @@ func SetDefaultCORS(cfg *Config) {
 	}
 }
 
+// Validate checks the configuration for correctness.
 func (c *Config) Validate() error {
 	if err := c.validatePort(); err != nil {
 		return err

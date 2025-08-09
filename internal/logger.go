@@ -1,10 +1,53 @@
 package internal
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"strings"
+	"fmt"
+	"time"
 )
+
+// DenseTextHandler outputs only values, space-separated, in a fixed order.
+type DenseTextHandler struct {
+	level slog.Level
+}
+
+// Enabled reports whether the handler is enabled for the given level.
+func (h *DenseTextHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= h.level
+}
+
+// Handle formats the log record as dense values and writes to stdout.
+func (h *DenseTextHandler) Handle(_ context.Context, r slog.Record) error {
+	var b strings.Builder
+	b.WriteString(r.Time.Format(time.RFC3339))
+	b.WriteString(" ")
+	b.WriteString(r.Level.String())
+	b.WriteString(" ")
+	b.WriteString(fmt.Sprintf("%q\t", r.Message))
+	r.Attrs(func(a slog.Attr) bool {
+		b.WriteString(" ")
+		switch v := a.Value.Any().(type) {
+		case string:
+			b.WriteString(v)
+		default:
+			b.WriteString(fmt.Sprintf("%v", v))
+		}
+		return true
+	})
+	b.WriteString("\n")
+	_, err := os.Stdout.WriteString(b.String())
+	return err
+}
+
+// WithAttrs returns the handler unchanged (attrs unused).
+func (h *DenseTextHandler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
+// WithGroup returns the handler unchanged (name unused).
+func (h *DenseTextHandler) WithGroup(_ string) slog.Handler       { return h }
+
+
 
 const (
 	defaultLogLevel = "info"
@@ -31,11 +74,7 @@ func NewLogger(level string) *Logger {
 		logLevel = slog.LevelInfo
 	}
 
-	opts := &slog.HandlerOptions{
-		Level: logLevel,
-	}
-
-	handler := slog.NewTextHandler(os.Stdout, opts)
+	handler := &DenseTextHandler{level: logLevel}
 	return &Logger{slog.New(handler)}
 }
 

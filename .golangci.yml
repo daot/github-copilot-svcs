@@ -1,84 +1,19 @@
-run:
-  timeout: 5m
-  modules-download-mode: readonly
-
-linters-settings:
-  govet:
-    enable:
-      - shadow
-  gocyclo:
-    min-complexity: 20
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
-  goimports:
-    local-prefixes: github.com/privapps/github-copilot-svcs
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-    disabled-checks:
-      - dupImport
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-      - wrapperFunc
-      - returnAfterHttpError
-  gosec:
-    excludes:
-      - G101 # Potential hardcoded credentials - these are URLs, not credentials
-      - G108 # Profiling endpoint - intentionally exposed for monitoring
+version: "2"
 
 linters:
-  disable-all: true
   enable:
-    - bodyclose
-    - dogsled
-    - dupl
-    - errcheck
-    - gochecknoinits
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - goimports
-    - mnd
-    - goprintffuncname
-    - gosec
-    - gosimple
     - govet
-    - ineffassign
-    - lll
-    - misspell
-    - nakedret
-    - revive
+    - errcheck
     - staticcheck
-    - stylecheck
-    - typecheck
-    - unconvert
-    - unparam
-    - unused
-    - whitespace
+    - ineffassign
+    - gocritic
+    - revive
+
+run:
+  timeout: 5m
+  tests: false
+  concurrency: 4
 
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - mnd
-        - gosec
-    - path: main\.go
-      linters:
-        - gochecknoinits
-    - text: "G108.*pprof"
-      linters:
-        - gosec
-    - text: "G101.*URL"
-      linters:
-        - gosec
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,3 +1,4 @@
+// Package internal provides HTTP middleware for github-copilot-svcs.
 package internal
 
 import (
@@ -16,13 +17,14 @@ const (
 	statusClientError = 400
 )
 
-// ResponseWriter wrapper to capture response data
+// LoggingResponseWriter wraps http.ResponseWriter to capture response data and status code.
 type LoggingResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
 	body       *bytes.Buffer
 }
 
+// NewLoggingResponseWriter ...
 func NewLoggingResponseWriter(w http.ResponseWriter) *LoggingResponseWriter {
 	return &LoggingResponseWriter{
 		ResponseWriter: w,
@@ -31,6 +33,7 @@ func NewLoggingResponseWriter(w http.ResponseWriter) *LoggingResponseWriter {
 	}
 }
 
+// WriteHeader ...
 func (lrw *LoggingResponseWriter) WriteHeader(code int) {
 	lrw.statusCode = code
 	lrw.ResponseWriter.WriteHeader(code)
@@ -42,6 +45,7 @@ func (lrw *LoggingResponseWriter) Write(body []byte) (int, error) {
 	return lrw.ResponseWriter.Write(body)
 }
 
+// Hijack ...
 func (lrw *LoggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hijacker, ok := lrw.ResponseWriter.(http.Hijacker); ok {
 		return hijacker.Hijack()
@@ -49,15 +53,17 @@ func (lrw *LoggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) 
 	return nil, nil, http.ErrNotSupported
 }
 
+// StatusCode ...
 func (lrw *LoggingResponseWriter) StatusCode() int {
 	return lrw.statusCode
 }
 
+// Body ...
 func (lrw *LoggingResponseWriter) Body() []byte {
 	return lrw.body.Bytes()
 }
 
-// Request logging middleware
+// LoggingMiddleware logs HTTP requests and responses, including status code and duration.
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -102,11 +108,12 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Log response with appropriate level
-		if statusCode >= statusServerError {
+		switch {
+		case statusCode >= statusServerError:
 			Error("HTTP Response", logArgs...)
-		} else if statusCode >= statusClientError {
+		case statusCode >= statusClientError:
 			Warn("HTTP Response", logArgs...)
-		} else {
+		default:
 			Info("HTTP Response", logArgs...)
 		}
 
@@ -117,7 +124,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// Recovery middleware to handle panics
+// RecoveryMiddleware ...
 func RecoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -136,7 +143,7 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// CORS middleware
+// CORSMiddleware ...
 func CORSMiddleware(config *Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +174,7 @@ func CORSMiddleware(config *Config) func(http.Handler) http.Handler {
 	}
 }
 
-// Security headers middleware
+// SecurityHeadersMiddleware ...
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Security headers
@@ -185,7 +192,7 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// Request timeout middleware
+// TimeoutMiddleware sets a timeout for HTTP requests using http.TimeoutHandler.
 func TimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.TimeoutHandler(next, timeout, "Request timeout")

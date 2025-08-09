@@ -1,3 +1,4 @@
+// Package internal provides model-related logic for github-copilot-svcs.
 package internal
 
 import (
@@ -34,7 +35,11 @@ func FetchFromModelsDev(httpClient *http.Client) (*transform.ModelList, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+	if err := resp.Body.Close(); err != nil {
+		Warn("Error closing response body", "error", err)
+	}
+}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, NewNetworkError("fetch_models", "https://models.dev/api.json", fmt.Sprintf("API returned HTTP %d", resp.StatusCode), nil)
@@ -56,13 +61,14 @@ func FetchFromModelsDev(httpClient *http.Client) (*transform.ModelList, error) {
 		ownedBy := modelInfo.OwnedBy
 		if ownedBy == "" {
 			// Determine owner based on model name
-			if containsAny(modelInfo.Name, []string{"claude", "anthropic"}) {
+			switch {
+			case containsAny(modelInfo.Name, []string{"claude", "anthropic"}):
 				ownedBy = "anthropic"
-			} else if containsAny(modelInfo.Name, []string{"gpt", "o1", "o3", "o4", "openai"}) {
+			case containsAny(modelInfo.Name, []string{"gpt", "o1", "o3", "o4", "openai"}):
 				ownedBy = "openai"
-			} else if containsAny(modelInfo.Name, []string{"gemini", "google"}) {
+			case containsAny(modelInfo.Name, []string{"gemini", "google"}):
 				ownedBy = "google"
-			} else {
+			default:
 				ownedBy = "github-copilot"
 			}
 		}
@@ -131,7 +137,8 @@ func NewModelsService(cache CoalescingCacheInterface, httpClient *http.Client) *
 type CoalescingCacheInterface interface {
 	GetRequestKey(method, path string, body interface{}) string
 	CoalesceRequest(key string, fn func() interface{}) interface{}
-} // Handler returns an HTTP handler for the models endpoint
+} // Handler returns an HTTP handler for the models endpoint.
+// Handler returns an HTTP handler for the models endpoint.
 func (s *ModelsService) Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		// Use request coalescing for identical concurrent requests

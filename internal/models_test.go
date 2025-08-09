@@ -1,4 +1,4 @@
-package models_test
+package internal_test
 
 import (
 	"encoding/json"

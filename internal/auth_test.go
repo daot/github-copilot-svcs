@@ -1,4 +1,4 @@
-package auth_test
+package internal_test
 
 import (
 	"context"
@@ -17,7 +17,7 @@ const (
 )
 
 // Helper function to create a basic test config
-func createTestConfig() *internal.Config {
+func createAuthTestConfig() *internal.Config {
 	return &internal.Config{
 		Headers: struct {
 			UserAgent            string `json:"user_agent"`
@@ -40,13 +40,13 @@ func TestAuthService_EnsureValidToken(t *testing.T) {
 	}{
 		{
 			name:          "no token",
-			setupConfig:   createTestConfig,
+			setupConfig:   createAuthTestConfig,
 			expectedError: true,
 		},
 		{
 			name: "valid token - not expiring soon",
 			setupConfig: func() *internal.Config {
-				cfg := createTestConfig()
+				cfg := createAuthTestConfig()
 				cfg.CopilotToken = "valid_token"
 				cfg.ExpiresAt = time.Now().Add(time.Hour).Unix() // Expires in 1 hour
 				return cfg
@@ -56,7 +56,7 @@ func TestAuthService_EnsureValidToken(t *testing.T) {
 		{
 			name: "token expiring soon - but no github token to refresh",
 			setupConfig: func() *internal.Config {
-				cfg := createTestConfig()
+				cfg := createAuthTestConfig()
 				cfg.CopilotToken = "expiring_token"
 				cfg.ExpiresAt = time.Now().Add(2 * time.Minute).Unix() // Expires in 2 minutes
 				// No GitHubToken, so refresh should fail
@@ -67,7 +67,7 @@ func TestAuthService_EnsureValidToken(t *testing.T) {
 		{
 			name: "expired token - but no github token to refresh",
 			setupConfig: func() *internal.Config {
-				cfg := createTestConfig()
+				cfg := createAuthTestConfig()
 				cfg.CopilotToken = "expired_token"
 				cfg.ExpiresAt = time.Now().Unix() - 100 // Expired 100 seconds ago
 				// No GitHubToken, so refresh should fail
@@ -110,7 +110,7 @@ func TestAuthService_RefreshToken_ValidationLogic(t *testing.T) {
 		{
 			name: "no github token",
 			setupConfig: func() *internal.Config {
-				cfg := createTestConfig()
+				cfg := createAuthTestConfig()
 				cfg.CopilotToken = "old_token"
 				// No GitHubToken set
 				return cfg
@@ -158,7 +158,7 @@ func TestAuthService_RefreshTokenWithContext_CancellationLogic(t *testing.T) {
 		{
 			name: "context already canceled",
 			setupConfig: func() *internal.Config {
-				cfg := createTestConfig()
+				cfg := createAuthTestConfig()
 				cfg.GitHubToken = "test_token" // Has github token
 				return cfg
 			},
@@ -245,7 +245,7 @@ func TestTokenExpiryLogic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := createTestConfig()
+			cfg := createAuthTestConfig()
 			cfg.CopilotToken = "test_token"
 			cfg.ExpiresAt = tt.expiresAt
 
@@ -269,7 +269,7 @@ func TestTokenExpiryLogic(t *testing.T) {
 
 // Benchmark tests for performance verification
 func BenchmarkAuthService_EnsureValidToken_ValidToken(b *testing.B) {
-	cfg := createTestConfig()
+	cfg := createAuthTestConfig()
 	cfg.CopilotToken = "valid_token"
 	cfg.ExpiresAt = time.Now().Add(time.Hour).Unix()
 
@@ -282,7 +282,7 @@ func BenchmarkAuthService_EnsureValidToken_ValidToken(b *testing.B) {
 }
 
 func BenchmarkAuthService_EnsureValidToken_ExpiredToken(b *testing.B) {
-	cfg := createTestConfig()
+	cfg := createAuthTestConfig()
 	cfg.CopilotToken = "expired_token"
 	cfg.ExpiresAt = time.Now().Add(-time.Hour).Unix() // Expired
 
@@ -306,7 +306,7 @@ func TestAuthService_RefreshToken_SavesConfig(t *testing.T) {
 	}
 	defer os.Remove(tmpfile.Name())
 
-	cfg := createTestConfig()
+	cfg := createAuthTestConfig()
 	cfg.GitHubToken = "dummy-github-token"
 
 	// Dummy refresh func (no network)

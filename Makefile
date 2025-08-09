@@ -37,7 +37,7 @@ dev:
 
 # Run only unit tests
 test-unit:
-	go test -v -race ./test/unit/...
+	go test -v -race ./internal/... ./pkg/...
 
 # Run only integration tests
 test-integration:
@@ -56,7 +56,7 @@ test: test-unit
 
 # Test with coverage
 test-coverage:
-	go test -v -race -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/...,./pkg/... ./test/...
+	go test -v -race -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/...,./pkg/... ./test/... ./internal/...
 	go tool cover -html=coverage.out -o coverage.html
 	go tool cover -func=coverage.out
 	@echo "Coverage report generated: coverage.html"

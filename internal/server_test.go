@@ -1,4 +1,4 @@
-package server_test
+package internal_test
 
 import (
 	"net/http"
@@ -12,7 +12,7 @@ import (
 )
 
 // Test helpers
-func createTestConfig() *internal.Config {
+func createServerTestConfig() *internal.Config {
 	cfg := &internal.Config{
 		Port: 0, // Use 0 to let the system assign a port
 	}
@@ -171,7 +171,7 @@ func TestWorkerPoolStop(t *testing.T) {
 
 func TestCreateHTTPClient(t *testing.T) {
 	t.Run("creates client with correct configuration", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		client := internal.CreateHTTPClient(cfg)
 
 		if client == nil {
@@ -200,7 +200,7 @@ func TestCreateHTTPClient(t *testing.T) {
 	})
 
 	t.Run("creates functional client", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		client := internal.CreateHTTPClient(cfg)
 
 		// Create a test server
@@ -227,7 +227,7 @@ func TestCreateHTTPClient(t *testing.T) {
 
 func TestNewServer(t *testing.T) {
 	t.Run("creates server with correct configuration", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		httpClient := internal.CreateHTTPClient(cfg)
 		server := internal.NewServer(cfg, httpClient)
 
@@ -240,7 +240,7 @@ func TestNewServer(t *testing.T) {
 	})
 
 	t.Run("uses default port when not specified", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		cfg.Port = 0 // Explicitly set to 0
 		httpClient := internal.CreateHTTPClient(cfg)
 		server := internal.NewServer(cfg, httpClient)
@@ -251,7 +251,7 @@ func TestNewServer(t *testing.T) {
 	})
 
 	t.Run("creates server with custom port", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		cfg.Port = 9999
 		httpClient := internal.CreateHTTPClient(cfg)
 		server := internal.NewServer(cfg, httpClient)
@@ -264,7 +264,7 @@ func TestNewServer(t *testing.T) {
 
 func TestServerStartStop(t *testing.T) {
 	t.Run("server starts and stops gracefully", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		cfg.Port = 0 // Let system assign port
 		httpClient := internal.CreateHTTPClient(cfg)
 		server := internal.NewServer(cfg, httpClient)
@@ -296,7 +296,7 @@ func TestServerStartStop(t *testing.T) {
 	})
 
 	t.Run("server stops gracefully", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		cfg.Port = 0
 		httpClient := internal.CreateHTTPClient(cfg)
 		server := internal.NewServer(cfg, httpClient)
@@ -320,7 +320,7 @@ func TestServerStartStop(t *testing.T) {
 
 func TestServerRoutes(t *testing.T) {
 	t.Run("server has correct routes", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		httpClient := internal.CreateHTTPClient(cfg)
 		server := internal.NewServer(cfg, httpClient)
 
@@ -342,7 +342,7 @@ func TestServerConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				cfg := createTestConfig()
+				cfg := createServerTestConfig()
 				httpClient := internal.CreateHTTPClient(cfg)
 				server := internal.NewServer(cfg, httpClient)
 
@@ -360,7 +360,7 @@ func TestWorkerPoolConfiguration(t *testing.T) {
 	t.Run("worker pool uses CPU multiplier", func(t *testing.T) {
 		// This test verifies that NewWorkerPool is called with runtime.NumCPU() * 2
 		// We can't directly test the worker count, but we can verify the pool works
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		httpClient := internal.CreateHTTPClient(cfg)
 		server := internal.NewServer(cfg, httpClient)
 
@@ -374,7 +374,7 @@ func TestWorkerPoolConfiguration(t *testing.T) {
 
 func TestHTTPClientTimeout(t *testing.T) {
 	t.Run("HTTP client respects timeout configuration", func(t *testing.T) {
-		cfg := createTestConfig()
+		cfg := createServerTestConfig()
 		cfg.Timeouts.HTTPClient = 1 // 1 second timeout
 
 		client := internal.CreateHTTPClient(cfg)
@@ -424,7 +424,7 @@ func TestServerMemoryManagement(t *testing.T) {
 	t.Run("server creation doesn't leak memory", func(t *testing.T) {
 		// Simple test to ensure server creation/destruction works properly
 		for i := 0; i < 100; i++ {
-			cfg := createTestConfig()
+			cfg := createServerTestConfig()
 			httpClient := internal.CreateHTTPClient(cfg)
 			server := internal.NewServer(cfg, httpClient)
 

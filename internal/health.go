@@ -1,3 +1,4 @@
+// Package internal provides health check logic for github-copilot-svcs.
 package internal
 
 import (
@@ -24,8 +25,11 @@ const (
 type HealthStatus string
 
 const (
+	// StatusHealthy indicates the service is healthy.
 	StatusHealthy   HealthStatus = "healthy"
+	// StatusDegraded indicates the service is degraded.
 	StatusDegraded  HealthStatus = "degraded"
+	// StatusUnhealthy indicates the service is unhealthy.
 	StatusUnhealthy HealthStatus = "unhealthy"
 )
 
@@ -104,19 +108,20 @@ func NewHealthChecker(httpClient *http.Client, version string) *HealthChecker {
 }
 
 // AddCheck adds a health check function
-func (hc *HealthChecker) AddCheck(check HealthCheckFunc) {
-	hc.checks = append(hc.checks, check)
+// AddCheck adds a health check function.
+func (h *HealthChecker) AddCheck(check HealthCheckFunc) {
+	h.checks = append(h.checks, check)
 }
 
-// CheckHealth performs all health checks and returns the overall status
-func (hc *HealthChecker) CheckHealth(ctx context.Context) *HealthResponse {
+// CheckHealth performs all health checks and returns the overall status.
+func (h *HealthChecker) CheckHealth(ctx context.Context) *HealthResponse {
 	start := time.Now()
 
 	// Run all checks
-	checks := make([]HealthCheck, 0, len(hc.checks))
+	checks := make([]HealthCheck, 0, len(h.checks))
 	overallStatus := StatusHealthy
 
-	for _, checkFunc := range hc.checks {
+	for _, checkFunc := range h.checks {
 		check := checkFunc(ctx)
 		checks = append(checks, check)
 
@@ -129,14 +134,14 @@ func (hc *HealthChecker) CheckHealth(ctx context.Context) *HealthResponse {
 	}
 
 	// Collect system metrics
-	systemMetrics := hc.collectSystemMetrics()
+	systemMetrics := h.collectSystemMetrics()
 
 	response := &HealthResponse{
 		Status:    overallStatus,
 		Service:   "github-copilot-svcs",
-		Version:   hc.version,
+		Version:   h.version,
 		Timestamp: time.Now(),
-		Uptime:    time.Since(hc.startTime),
+		Uptime:    time.Since(h.startTime),
 		Checks:    checks,
 		System:    systemMetrics,
 		Details: map[string]interface{}{
@@ -147,13 +152,13 @@ func (hc *HealthChecker) CheckHealth(ctx context.Context) *HealthResponse {
 	return response
 }
 
-// HTTP handler for health checks
-func (hc *HealthChecker) Handler() http.HandlerFunc {
+// Handler ...
+func (h *HealthChecker) Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
 		defer cancel()
 
-		health := hc.CheckHealth(ctx)
+		health := h.CheckHealth(ctx)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -176,7 +181,8 @@ func (hc *HealthChecker) Handler() http.HandlerFunc {
 }
 
 // Default health checks
-func (hc *HealthChecker) checkMemory(_ context.Context) HealthCheck {
+// checkMemory checks memory usage and returns a HealthCheck.
+func (h *HealthChecker) checkMemory(_ context.Context) HealthCheck {
 	start := time.Now()
 
 	var m runtime.MemStats
@@ -212,7 +218,11 @@ func (hc *HealthChecker) checkMemory(_ context.Context) HealthCheck {
 	}
 }
 
-func (hc *HealthChecker) checkGoroutines(_ context.Context) HealthCheck {
+// checkGoroutines checks goroutine count and returns a HealthCheck.
+// checkGoroutines checks goroutine count and returns a HealthCheck.
+// checkGoroutines checks goroutine count and returns a HealthCheck.
+// checkGoroutines checks goroutine count and returns a HealthCheck.
+func (h *HealthChecker) checkGoroutines(_ context.Context) HealthCheck {
 	start := time.Now()
 
 	numGoroutines := runtime.NumGoroutine()
@@ -244,7 +254,9 @@ func (hc *HealthChecker) checkGoroutines(_ context.Context) HealthCheck {
 	}
 }
 
-func (hc *HealthChecker) collectSystemMetrics() SystemMetrics {
+// collectSystemMetrics collects system metrics and returns a SystemMetrics struct.
+// collectSystemMetrics collects system metrics and returns a SystemMetrics struct.
+func (h *HealthChecker) collectSystemMetrics() SystemMetrics {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 

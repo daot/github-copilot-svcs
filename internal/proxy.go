@@ -1,3 +1,4 @@
+// Package internal provides proxy service logic for github-copilot-svcs.
 package internal
 
 import (
@@ -36,8 +37,11 @@ const (
 )
 
 const (
+	// ProxyCBStateClosed indicates the circuit breaker is closed.
 	ProxyCBStateClosed   = 0
+	// ProxyCBStateOpen indicates the circuit breaker is open.
 	ProxyCBStateOpen     = 1
+	// ProxyCBStateHalfOpen indicates the circuit breaker is half-open.
 	ProxyCBStateHalfOpen = 2
 )
 
@@ -308,7 +312,11 @@ func (s *ProxyService) processProxyRequest(ctx context.Context, w http.ResponseW
 		}
 		return fmt.Errorf("bad request: failed to read request body: %w", err)
 	}
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			Warn("Error closing request body", "error", err)
+		}
+	}()
 
 	// Basic body validation (for demonstration: consider empty body an error)
 	if len(body) == 0 {
@@ -354,7 +362,11 @@ func (s *ProxyService) processProxyRequest(ctx context.Context, w http.ResponseW
 		Error("Error making request after retries", "error", err)
 		return NewNetworkError("proxy_request", targetURL, "failed to complete request after retries", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+	if err := resp.Body.Close(); err != nil {
+		Warn("Error closing response body", "error", err)
+	}
+}()
 
 	// Update circuit breaker based on response
 	if resp.StatusCode < statusCodeServerError {

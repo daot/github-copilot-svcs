@@ -62,10 +62,8 @@ Options:
 // RunCommand executes the specified command with arguments
 func RunCommand(command string, args []string, version string) error {
 	// Check for flags
-	jsonOutput := false
-	if len(args) >= 1 && args[0] == "--json" {
-		jsonOutput = true
-	}
+	jsonOutput := len(args) >= 1 && args[0] == "--json"
+
 
 	switch command {
 	case cmdAuth:

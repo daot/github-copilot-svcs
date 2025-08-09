@@ -1,3 +1,4 @@
+// Package internal provides core authentication, proxy, and service logic for github-copilot-svcs.
 package internal
 
 import (
@@ -44,7 +45,7 @@ type copilotTokenResponse struct {
 	} `json:"endpoints"`
 }
 
-// Service provides authentication operations
+// AuthService provides authentication operations for GitHub Copilot.
 type AuthService struct {
 	httpClient *http.Client
 
@@ -66,19 +67,21 @@ func NewAuthService(httpClient *http.Client, opts ...func(*AuthService)) *AuthSe
 	return svc
 }
 
-// Option to set config path for tests
+// WithConfigPath sets the config path for AuthService.
+// WithConfigPath is used for tests.
 func WithConfigPath(path string) func(*AuthService) {
 	return func(s *AuthService) {
 		s.configPath = path
 	}
 }
 
-// Option to set custom refresh function for tests
+// WithRefreshFunc sets a custom refresh function for AuthService.
 func WithRefreshFunc(f func(cfg *Config) error) func(*AuthService) {
 	return func(s *AuthService) {
 		s.refreshFunc = f
 	}
 }
+
 
 // Authenticate performs the full GitHub Copilot authentication flow
 func (s *AuthService) Authenticate(cfg *Config) error {
@@ -138,6 +141,7 @@ func (s *AuthService) RefreshToken(cfg *Config) error {
 	return s.RefreshTokenWithContext(context.Background(), cfg)
 }
 
+// RefreshTokenWithContext refreshes the Copilot token using the provided context and config.
 func (s *AuthService) RefreshTokenWithContext(ctx context.Context, cfg *Config) error {
 	if s.refreshFunc != nil {
 		// Use injected refresh function for tests
@@ -221,7 +225,11 @@ func (s *AuthService) getDeviceCode(cfg *Config) (*deviceCodeResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			Warn("Error closing response body", "error", err)
+		}
+	}()
 
 	var dc deviceCodeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&dc); err != nil {
@@ -262,10 +270,14 @@ func (s *AuthService) pollForGitHubTokenWithContext(ctx context.Context, cfg *Co
 
 		var tr tokenResponse
 		if err := json.NewDecoder(resp.Body).Decode(&tr); err != nil {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				Warn("Error closing response body", "error", err)
+			}
 			continue
 		}
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			Warn("Error closing response body", "error", err)
+		}
 
 		if tr.Error != "" {
 			if tr.Error == "authorization_pending" {
@@ -294,7 +306,11 @@ func (s *AuthService) getCopilotToken(cfg *Config, githubToken string) (token st
 	if err != nil {
 		return "", 0, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			Warn("Error closing response body", "error", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", 0, 0, NewNetworkError("getCopilotToken", copilotAPIKeyURL, fmt.Sprintf("HTTP %d response", resp.StatusCode), nil)
