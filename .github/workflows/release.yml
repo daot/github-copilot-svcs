@@ -23,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: "1.21"
 
       - name: Get next version
         id: version
@@ -31,24 +31,24 @@ jobs:
           # Get the latest tag, if no tags exist, start with v0.0.0
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "Latest tag: $LATEST_TAG"
-          
+
           # Extract version numbers
           VERSION=${LATEST_TAG#v}
           IFS='.' read -r -a VERSION_PARTS <<< "$VERSION"
           MAJOR=${VERSION_PARTS[0]:-0}
           MINOR=${VERSION_PARTS[1]:-0}
           PATCH=${VERSION_PARTS[2]:-0}
-          
+
           # Increment patch version
           PATCH=$((PATCH + 1))
-          
+
           # If this is the first release and we're starting from v0.0.0, set to v0.0.1
           if [ "$LATEST_TAG" = "v0.0.0" ]; then
             NEW_VERSION="v0.0.1"
           else
             NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
           fi
-          
+
           echo "New version: $NEW_VERSION"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
@@ -69,9 +69,9 @@ jobs:
           release_name: Release ${{ steps.version.outputs.version }}
           body: |
             ## Changes in ${{ steps.version.outputs.version }}
-            
+
             Auto-generated release from main branch.
-            
+
             ### Downloads
             - Linux AMD64: `github-copilot-svcs-linux-amd64.gz`
             - Linux ARM64: `github-copilot-svcs-linux-arm64.gz`
@@ -106,7 +106,7 @@ jobs:
           - goos: windows
             goarch: arm64
             suffix: ".exe"
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -114,7 +114,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: "1.21"
 
       - name: Build binary
         env:
@@ -124,14 +124,14 @@ jobs:
         run: |
           BINARY_NAME="github-copilot-svcs-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
           go build -ldflags="-s -w -X main.version=${{ needs.release.outputs.version }}" -o "$BINARY_NAME" .
-          
+
           # Make the binary executable (important for Unix systems)
           chmod +x "$BINARY_NAME"
-          
+
           # Gzip the binary
           GZ_BINARY_NAME="$BINARY_NAME.gz"
           gzip -c "$BINARY_NAME" > "$GZ_BINARY_NAME"
-          
+
           echo "Built and gzipped binary: $GZ_BINARY_NAME"
           ls -la "$GZ_BINARY_NAME"
 
