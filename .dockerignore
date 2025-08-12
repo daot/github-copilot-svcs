@@ -1,0 +1,27 @@
+# Go build cache
+**/bin
+**/obj
+**/*.exe
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.test
+coverage.out
+
+# Git
+.git
+.gitignore
+
+# Node/yarn just in case
+node_modules
+
+# Local binaries and artifacts
+github-copilot-svcs
+github-copilot-svcs-*
+
+# Editor/OS
+.DS_Store
+.idea
+.vscode
+
+

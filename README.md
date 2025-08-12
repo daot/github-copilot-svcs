@@ -85,6 +85,50 @@ make config     # Show current configuration
 make clean      # Remove the binary
 ```
 
+### Docker
+
+Build a lightweight multi-stage container (distroless runtime):
+
+```bash
+# Build locally
+docker build -t gh-copilot-svcs:dev .
+
+# Or via Makefile (multi-arch buildx)
+make docker-build VERSION=dev
+```
+
+Authenticate (first time only) using device code flow; this persists tokens in a named volume:
+
+```bash
+docker run --rm -it \
+  -v ghcs-data:/home/nonroot/.local/share/github-copilot-svcs \
+  gh-copilot-svcs:dev auth
+```
+
+Run the proxy on port 8081:
+
+```bash
+docker run --rm -p 8081:8081 \
+  -v ghcs-data:/home/nonroot/.local/share/github-copilot-svcs \
+  gh-copilot-svcs:dev
+```
+
+Check status or list models:
+
+```bash
+docker run --rm \
+  -v ghcs-data:/home/nonroot/.local/share/github-copilot-svcs \
+  gh-copilot-svcs:dev status
+
+docker run --rm \
+  -v ghcs-data:/home/nonroot/.local/share/github-copilot-svcs \
+  gh-copilot-svcs:dev models
+```
+
+Notes:
+- The container stores configuration and tokens under `/home/nonroot/.local/share/github-copilot-svcs` (persisted via the `ghcs-data` volume).
+- The container runs as a non-root user on a distroless base and exposes port 8081.
+
 ## Installation & Usage
 
 ### 1. Build the Application

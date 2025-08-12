@@ -39,11 +39,17 @@ const (
 )
 
 func getConfigPath() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
-		return "", err
+	// Prefer os/user, but fall back to $HOME when unavailable (container-safe)
+	var homeDir string
+	if usr, err := user.Current(); err == nil && usr.HomeDir != "" {
+		homeDir = usr.HomeDir
+	} else if env := os.Getenv("HOME"); env != "" {
+		homeDir = env
+	} else {
+		return "", fmt.Errorf("unable to determine home directory: %v", err)
 	}
-	dir := filepath.Join(usr.HomeDir, configDirName)
+
+	dir := filepath.Join(homeDir, configDirName)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", err
 	}
