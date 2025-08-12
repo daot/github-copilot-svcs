@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
@@ -144,3 +145,59 @@ jobs:
           asset_path: ./github-copilot-svcs-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}.gz
           asset_name: github-copilot-svcs-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}.gz
           asset_content_type: application/gzip
+
+  docker:
+    name: Build and publish Docker image
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute lowercase repo and owner for GHCR
+        id: image
+        shell: bash
+        run: |
+          echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
+          echo "repo_lc=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+
+      - name: Prepare Docker tags
+        id: docker_tags
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          VERSION_NO_V="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
+
+      - name: Build and push (amd64, arm64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          build-args: |
+            VERSION=${{ steps.docker_tags.outputs.version }}
+          tags: |
+            ghcr.io/${{ steps.image.outputs.repo_lc }}:${{ steps.docker_tags.outputs.version }}
+            ghcr.io/${{ steps.image.outputs.repo_lc }}:${{ steps.docker_tags.outputs.version_no_v }}
+            ghcr.io/${{ steps.image.outputs.repo_lc }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
