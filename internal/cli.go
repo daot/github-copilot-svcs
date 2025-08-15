@@ -45,7 +45,7 @@ Commands:
 
 Examples:
   %s auth                    # Authenticate with GitHub
-  %s start --port 8080       # Start server on port 8080
+  %s run --port 8080         # Run server on port 8080
   %s status --json           # Show status in JSON format
 
 Environment Variables:

@@ -29,7 +29,7 @@ build-windows-arm64:
 
 # Run the application
 run: build
-	./$(BINARY) start
+	./$(BINARY) run
 
 # Development server with hot reload (requires air: go install github.com/cosmtrek/air@latest)
 dev:

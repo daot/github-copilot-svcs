@@ -42,7 +42,7 @@ Docker images are automatically built and published to GitHub Container Registry
 docker pull ghcr.io/privapps/github-copilot-svcs:latest
 
 # Pull a specific version (example)
-docker pull ghcr.io/privapps/github-copilot-svcs:v0.0.2
+docker pull ghcr.io/privapps/github-copilot-svcs:0.0.2
 ```
 
 Available architectures:
@@ -144,7 +144,7 @@ cp config.example.json ~/.local/share/github-copilot-svcs/config.json
 ```bash
 make run
 # or manually:
-./github-copilot-svcs start
+./github-copilot-svcs run
 ```
 
 ## Docker Deployment
@@ -185,7 +185,7 @@ docker exec -it github-copilot-svcs ./github-copilot-svcs auth
 
 | Command | Description |
 |---------|-------------|
-| `start` | Start the proxy server (default command) |
+| `run`   | Run the proxy server (default command) |
 | `auth`   | Authenticate with GitHub Copilot using device flow |
 | `status` | Show detailed authentication and token status |
 | `config` | Display current configuration details |
@@ -425,7 +425,7 @@ The proxy automatically maps common model names to GitHub Copilot models:
 curl http://localhost:8081/health
 
 # View logs (if running in foreground)
-./github-copilot-svcs start
+./github-copilot-svcs run
 ```
 
 ### Port Conflicts
