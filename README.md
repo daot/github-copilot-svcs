@@ -529,14 +529,6 @@ We welcome contributions! Please follow these guidelines:
 6. Document your changes in the README if relevant
 7. Submit a pull request with a clear description
 
-### Commit Messages
-- Use clear, descriptive commit messages
-- Reference related issues (e.g., `Fixes #123`)
-
-### Pull Request Review
-- All PRs require review by a maintainer
-- Address review comments promptly
-
 ## Security
 
 - Tokens and secrets are stored securely in the user's home directory with restricted permissions (0700)
