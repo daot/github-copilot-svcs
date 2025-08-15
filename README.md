@@ -148,37 +148,11 @@ make run
 ```
 
 ## Docker Deployment
-
-### Using Docker Compose (Recommended)
-```bash
-# Create config directory
-mkdir -p ./config
-
-# Start the service
-docker-compose up -d
-
-# Authenticate (first time only)
-docker-compose exec github-copilot-svcs ./github-copilot-svcs auth
-
-# View logs
-docker-compose logs -f
 ```
-
-### Using Docker Run
-```bash
-# Create a config volume
-docker volume create copilot-config
-
-# Run the container
-docker run -d \
-  --name github-copilot-svcs \
+docker run --rm \
   -p 8081:8081 \
-  -v copilot-config:/root/.local/share/github-copilot-svcs \
-  -e LOG_LEVEL=info \
-  ghcr.io/privapps/github-copilot-svcs:latest
-
-# Authenticate (first time only)
-docker exec -it github-copilot-svcs ./github-copilot-svcs auth
+  -v ~/.local/share/github-copilot-svcs:/home/appuser/.local/share/github-copilot-svcs  \
+  ghcr.io/privapps/github-copilot-svcs:0.0.2
 ```
 
 ## CLI Commands

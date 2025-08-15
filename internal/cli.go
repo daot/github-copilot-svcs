@@ -93,7 +93,7 @@ func RunCommand(command string, args []string, version string) error {
 }
 
 func handleAuth() error {
-	cfg, err := LoadConfig()
+	cfg, err := LoadConfig(true)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
@@ -250,17 +250,13 @@ func getCurrentTime() int64 {
 func handleRun() error {
 	cfg, err := LoadConfig()
 	if err != nil {
-		// If config validation failed due to missing tokens, trigger auth flow
 		if strings.Contains(err.Error(), "either github_token or copilot_token must be provided") {
-			fmt.Println("No valid token found. Starting authentication flow...")
-			cfg = &Config{Port: defaultServerPort}
-			SetDefaultTimeouts(cfg)
-			SetDefaultHeaders(cfg)
-			SetDefaultCORS(cfg)
-			httpClient := CreateHTTPClient(cfg)
-			authService := NewAuthService(httpClient)
-			if authErr := authService.Authenticate(cfg); authErr != nil {
+			if authErr := handleAuth(); authErr != nil {
 				return fmt.Errorf("authentication failed: %v", authErr)
+			}
+			cfg, err = LoadConfig()
+			if err != nil {
+				return fmt.Errorf("failed to load config after authentication: %v", err)
 			}
 		} else {
 			return fmt.Errorf("failed to load config: %v", err)
@@ -284,6 +280,10 @@ func handleRun() error {
 func handleModels() error {
 	cfg, err := LoadConfig()
 	if err != nil {
+		if strings.Contains(err.Error(), "either github_token or copilot_token must be provided") {
+			fmt.Println("Not authenticated. Run 'auth' to authenticate.")
+			return nil
+		}
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
@@ -319,6 +319,10 @@ func handleModels() error {
 func handleRefresh() error {
 	cfg, err := LoadConfig()
 	if err != nil {
+		if strings.Contains(err.Error(), "either github_token or copilot_token must be provided") {
+			fmt.Println("Not authenticated. Run 'auth' to authenticate.")
+			return nil
+		}
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 

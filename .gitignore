@@ -30,3 +30,10 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+.github/copilot-instructions.md
+.publish.sh
+QWEN.md
+TODO.md
+docs/
+github-copilot-svcs

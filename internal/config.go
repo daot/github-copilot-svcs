@@ -100,7 +100,7 @@ func GetConfigPath() (string, error) {
 }
 
 // LoadConfig loads the configuration from file and environment variables
-func LoadConfig() (*Config, error) {
+func LoadConfig(skipTokenValidation ...bool) (*Config, error) {
 	path, err := GetConfigPath()
 	if err != nil {
 		return nil, err
@@ -144,8 +144,25 @@ func LoadConfig() (*Config, error) {
 	}
 
 	// Validate configuration
-	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("configuration validation failed: %w", err)
+	skip := len(skipTokenValidation) > 0 && skipTokenValidation[0]
+	if skip {
+		// Validate everything except tokens
+		if err := cfg.validatePort(); err != nil {
+			return nil, fmt.Errorf("configuration validation failed: %w", err)
+		}
+		if err := cfg.validateTimeouts(); err != nil {
+			return nil, fmt.Errorf("configuration validation failed: %w", err)
+		}
+		if err := cfg.validateHeaders(); err != nil {
+			return nil, fmt.Errorf("configuration validation failed: %w", err)
+		}
+		if err := cfg.validateCORS(); err != nil {
+			return nil, fmt.Errorf("configuration validation failed: %w", err)
+		}
+	} else {
+		if err := cfg.Validate(); err != nil {
+			return nil, fmt.Errorf("configuration validation failed: %w", err)
+		}
 	}
 
 	return cfg, nil
