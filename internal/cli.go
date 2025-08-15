@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"strings"
 )
 
 // Command constants to avoid goconst errors
@@ -113,6 +114,10 @@ func handleAuth() error {
 func handleStatusWithFormat(jsonOutput bool) error {
 	cfg, err := LoadConfig()
 	if err != nil {
+		if strings.Contains(err.Error(), "either github_token or copilot_token must be provided") {
+			fmt.Println("Not authenticated. Run 'auth' to authenticate.")
+			return nil
+		}
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
@@ -210,6 +215,10 @@ func printStatusText(cfg *Config) error {
 func handleConfig() error {
 	cfg, err := LoadConfig()
 	if err != nil {
+		if strings.Contains(err.Error(), "either github_token or copilot_token must be provided") {
+			fmt.Println("Not authenticated. Run 'auth' to authenticate.")
+			return nil
+		}
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
@@ -233,6 +242,7 @@ func handleConfig() error {
 	return nil
 }
 
+
 func getCurrentTime() int64 {
 	return time.Now().Unix()
 }
@@ -240,7 +250,21 @@ func getCurrentTime() int64 {
 func handleRun() error {
 	cfg, err := LoadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %v", err)
+		// If config validation failed due to missing tokens, trigger auth flow
+		if strings.Contains(err.Error(), "either github_token or copilot_token must be provided") {
+			fmt.Println("No valid token found. Starting authentication flow...")
+			cfg = &Config{Port: defaultServerPort}
+			SetDefaultTimeouts(cfg)
+			SetDefaultHeaders(cfg)
+			SetDefaultCORS(cfg)
+			httpClient := CreateHTTPClient(cfg)
+			authService := NewAuthService(httpClient)
+			if authErr := authService.Authenticate(cfg); authErr != nil {
+				return fmt.Errorf("authentication failed: %v", authErr)
+			}
+		} else {
+			return fmt.Errorf("failed to load config: %v", err)
+		}
 	}
 
 	// Create HTTP client and auth service
