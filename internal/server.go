@@ -307,7 +307,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 // Handler returns metrics in Prometheus format
 func (m *Metrics) Handler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		m.mutex.RLock()
 		requestsTotal := m.RequestsTotal
 		requestsDuration := m.RequestsDuration
@@ -316,23 +316,48 @@ func (m *Metrics) Handler() http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
-		fmt.Fprintf(w, "# HELP github_copilot_requests_total Total number of requests\n")
-		fmt.Fprintf(w, "# TYPE github_copilot_requests_total counter\n")
-		fmt.Fprintf(w, "github_copilot_requests_total %d\n", requestsTotal)
+		// Write metrics in Prometheus format, checking for errors
+		if _, err := fmt.Fprintf(w, "# HELP github_copilot_requests_total Total number of requests\n"); err != nil {
+			return
+		}
+		if _, err := fmt.Fprintf(w, "# TYPE github_copilot_requests_total counter\n"); err != nil {
+			return
+		}
+		if _, err := fmt.Fprintf(w, "github_copilot_requests_total %d\n", requestsTotal); err != nil {
+			return
+		}
 
-		fmt.Fprintf(w, "# HELP github_copilot_requests_duration_seconds Total duration of requests in seconds\n")
-		fmt.Fprintf(w, "# TYPE github_copilot_requests_duration_seconds counter\n")
-		fmt.Fprintf(w, "github_copilot_requests_duration_seconds %f\n", requestsDuration)
+		if _, err := fmt.Fprintf(w, "# HELP github_copilot_requests_duration_seconds Total duration of requests in seconds\n"); err != nil {
+			return
+		}
+		if _, err := fmt.Fprintf(w, "# TYPE github_copilot_requests_duration_seconds counter\n"); err != nil {
+			return
+		}
+		if _, err := fmt.Fprintf(w, "github_copilot_requests_duration_seconds %f\n", requestsDuration); err != nil {
+			return
+		}
 
-		fmt.Fprintf(w, "# HELP github_copilot_active_connections Current number of active connections\n")
-		fmt.Fprintf(w, "# TYPE github_copilot_active_connections gauge\n")
-		fmt.Fprintf(w, "github_copilot_active_connections %d\n", activeConnections)
+		if _, err := fmt.Fprintf(w, "# HELP github_copilot_active_connections Current number of active connections\n"); err != nil {
+			return
+		}
+		if _, err := fmt.Fprintf(w, "# TYPE github_copilot_active_connections gauge\n"); err != nil {
+			return
+		}
+		if _, err := fmt.Fprintf(w, "github_copilot_active_connections %d\n", activeConnections); err != nil {
+			return
+		}
 
 		// Add uptime metric
 		uptime := time.Since(startTime).Seconds()
-		fmt.Fprintf(w, "# HELP github_copilot_uptime_seconds Server uptime in seconds\n")
-		fmt.Fprintf(w, "# TYPE github_copilot_uptime_seconds counter\n")
-		fmt.Fprintf(w, "github_copilot_uptime_seconds %f\n", uptime)
+		if _, err := fmt.Fprintf(w, "# HELP github_copilot_uptime_seconds Server uptime in seconds\n"); err != nil {
+			return
+		}
+		if _, err := fmt.Fprintf(w, "# TYPE github_copilot_uptime_seconds counter\n"); err != nil {
+			return
+		}
+		if _, err := fmt.Fprintf(w, "github_copilot_uptime_seconds %f\n", uptime); err != nil {
+			return
+		}
 	}
 }
 
