@@ -498,7 +498,8 @@ func (s *ProxyService) handleRegularResponse(w http.ResponseWriter, resp *http.R
 	buf.Reset()
 	defer s.bufferPool.Put(buf)
 
-	_, err := io.CopyBuffer(w, resp.Body, buf.Bytes()[:0])
+	// Use the buffer for copying (not an empty slice)
+	_, err := io.CopyBuffer(w, resp.Body, buf.Bytes())
 	if err != nil {
 		Error("Error copying response", "error", err)
 		return err
