@@ -36,10 +36,10 @@ func FetchFromModelsDev(httpClient *http.Client) (*transform.ModelList, error) {
 		return nil, err
 	}
 	defer func() {
-	if err := resp.Body.Close(); err != nil {
-		Warn("Error closing response body", "error", err)
-	}
-}()
+		if err := resp.Body.Close(); err != nil {
+			Warn("Error closing response body", "error", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, NewNetworkError("fetch_models", "https://models.dev/api.json", fmt.Sprintf("API returned HTTP %d", resp.StatusCode), nil)

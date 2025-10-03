@@ -1,25 +1,44 @@
-version: '3.8'
-
 services:
   github-copilot-svcs:
     build: .
     ports:
       - "8081:8081"
     environment:
+      # Server configuration
       - COPILOT_PORT=8081
       - LOG_LEVEL=info
+      # Performance optimizations
+      - GOGC=200 # Reduce GC frequency for better performance
+      - GOMAXPROCS=0 # Use all available CPU cores
     volumes:
-      # Mount config directory for persistent authentication
-      - ./config:/home/appuser/.local/share/github-copilot-svcs
+      # Mount config directory for persistent authentication (optimized path)
+      - ./config:/app/config
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8081/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     networks:
       - copilot-network
+    # Performance and security optimizations
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
 
 networks:
   copilot-network:

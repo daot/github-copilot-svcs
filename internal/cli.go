@@ -5,8 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 	"strings"
+	"time"
 )
 
 // Command constants to avoid goconst errors
@@ -64,7 +64,6 @@ Options:
 func RunCommand(command string, args []string, version string) error {
 	// Check for flags
 	jsonOutput := len(args) >= 1 && args[0] == "--json"
-
 
 	switch command {
 	case cmdAuth:
@@ -241,7 +240,6 @@ func handleConfig() error {
 
 	return nil
 }
-
 
 func getCurrentTime() int64 {
 	return time.Now().Unix()

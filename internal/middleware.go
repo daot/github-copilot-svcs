@@ -4,6 +4,7 @@ package internal
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"io"
 	"net"
 	"net/http"
@@ -196,6 +197,85 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 func TimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.TimeoutHandler(next, timeout, "Request timeout")
+	}
+}
+
+// CompressionResponseWriter wraps http.ResponseWriter to handle compression
+type CompressionResponseWriter struct {
+	http.ResponseWriter
+	gzipWriter *gzip.Writer
+	compressed bool
+}
+
+// NewCompressionResponseWriter creates a new compression response writer
+func NewCompressionResponseWriter(w http.ResponseWriter, r *http.Request) *CompressionResponseWriter {
+	// Check if client accepts gzip encoding
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		gz := gzip.NewWriter(w)
+		return &CompressionResponseWriter{
+			ResponseWriter: w,
+			gzipWriter:     gz,
+			compressed:     true,
+		}
+	}
+
+	return &CompressionResponseWriter{
+		ResponseWriter: w,
+		compressed:     false,
+	}
+}
+
+// WriteHeader handles the status code and sets compression headers if needed
+func (crw *CompressionResponseWriter) WriteHeader(statusCode int) {
+	if crw.compressed {
+		crw.ResponseWriter.Header().Set("Content-Encoding", "gzip")
+		crw.ResponseWriter.Header().Set("Vary", "Accept-Encoding")
+	}
+	crw.ResponseWriter.WriteHeader(statusCode)
+}
+
+// Write writes data, compressing if enabled
+func (crw *CompressionResponseWriter) Write(data []byte) (int, error) {
+	if crw.compressed {
+		return crw.gzipWriter.Write(data)
+	}
+	return crw.ResponseWriter.Write(data)
+}
+
+// Close closes the gzip writer if compression is enabled
+func (crw *CompressionResponseWriter) Close() error {
+	if crw.compressed {
+		return crw.gzipWriter.Close()
+	}
+	return nil
+}
+
+// CompressionMiddleware adds gzip compression for compressible content
+func CompressionMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Only compress certain content types
+			contentType := r.Header.Get("Content-Type")
+			shouldCompress := strings.Contains(contentType, "text/") ||
+				strings.Contains(contentType, "application/json") ||
+				strings.Contains(contentType, "application/javascript") ||
+				strings.Contains(contentType, "text/css") ||
+				strings.Contains(contentType, "text/html")
+
+			// Don't compress if client doesn't accept gzip or content is already compressed
+			acceptEncoding := r.Header.Get("Accept-Encoding")
+			if !shouldCompress || !strings.Contains(acceptEncoding, "gzip") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Create compression writer
+			crw := NewCompressionResponseWriter(w, r)
+			defer crw.Close()
+
+			// Serve the request with compression
+			next.ServeHTTP(crw, r)
+		})
 	}
 }
 

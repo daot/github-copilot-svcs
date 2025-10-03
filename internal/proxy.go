@@ -38,9 +38,9 @@ const (
 
 const (
 	// ProxyCBStateClosed indicates the circuit breaker is closed.
-	ProxyCBStateClosed   = 0
+	ProxyCBStateClosed = 0
 	// ProxyCBStateOpen indicates the circuit breaker is open.
-	ProxyCBStateOpen     = 1
+	ProxyCBStateOpen = 1
 	// ProxyCBStateHalfOpen indicates the circuit breaker is half-open.
 	ProxyCBStateHalfOpen = 2
 )
@@ -66,10 +66,17 @@ type CircuitBreaker struct {
 	mutex           sync.RWMutex
 }
 
-// CoalescingCache handles request coalescing for identical requests
+// CoalescingCache handles request coalescing for identical requests with TTL
 type CoalescingCache struct {
-	requests map[string]chan interface{}
+	requests map[string]*cacheEntry
 	mutex    sync.RWMutex
+	ttl      time.Duration
+}
+
+type cacheEntry struct {
+	result    interface{}
+	timestamp time.Time
+	waiting   chan interface{}
 }
 
 // ProxyService provides proxy functionality
@@ -93,11 +100,17 @@ type responseWrapper struct {
 	headersSent bool
 }
 
-// NewCoalescingCache creates a new coalescing cache
+// NewCoalescingCache creates a new coalescing cache with TTL
 func NewCoalescingCache() *CoalescingCache {
-	return &CoalescingCache{
-		requests: make(map[string]chan interface{}),
+	cache := &CoalescingCache{
+		requests: make(map[string]*cacheEntry),
+		ttl:      30 * time.Second, // Cache results for 30 seconds
 	}
+
+	// Start cleanup goroutine
+	go cache.cleanup()
+
+	return cache
 }
 
 // GetRequestKey generates a cache key for request coalescing
@@ -113,35 +126,74 @@ func (cc *CoalescingCache) GetRequestKey(method, url string, body interface{}) s
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// CoalesceRequest executes a function only once for identical concurrent requests
+// CoalesceRequest executes a function only once for identical concurrent requests with caching
 func (cc *CoalescingCache) CoalesceRequest(key string, fn func() interface{}) interface{} {
 	cc.mutex.Lock()
 
-	// Check if request is already in progress
-	if ch, exists := cc.requests[key]; exists {
-		cc.mutex.Unlock()
-		// Wait for the existing request to complete
-		return <-ch
+	// Check if we have a cached result that's still valid
+	if entry, exists := cc.requests[key]; exists {
+		if time.Since(entry.timestamp) < cc.ttl {
+			cc.mutex.Unlock()
+			return entry.result
+		}
+		// Remove expired entry
+		delete(cc.requests, key)
 	}
 
-	// Create new channel for this request
-	ch := make(chan interface{}, 1)
-	cc.requests[key] = ch
+	// Check if request is already in progress
+	if entry, exists := cc.requests[key]; exists && entry.waiting != nil {
+		cc.mutex.Unlock()
+		// Wait for the existing request to complete
+		return <-entry.waiting
+	}
+
+	// Create new entry for this request
+	entry := &cacheEntry{
+		waiting:   make(chan interface{}, 1),
+		timestamp: time.Now(),
+	}
+	cc.requests[key] = entry
 	cc.mutex.Unlock()
 
 	// Execute the request
 	result := fn()
 
-	// Broadcast result to all waiting goroutines
-	ch <- result
-	close(ch)
+	// Cache the result
+	entry.result = result
+	entry.timestamp = time.Now()
 
-	// Clean up
-	cc.mutex.Lock()
-	delete(cc.requests, key)
-	cc.mutex.Unlock()
+	// Broadcast result to all waiting goroutines
+	entry.waiting <- result
+	close(entry.waiting)
+
+	// Clean up the waiting channel after a short delay
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cc.mutex.Lock()
+		if e, exists := cc.requests[key]; exists {
+			e.waiting = nil
+		}
+		cc.mutex.Unlock()
+	}()
 
 	return result
+}
+
+// cleanup removes expired cache entries
+func (cc *CoalescingCache) cleanup() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		cc.mutex.Lock()
+		now := time.Now()
+		for key, entry := range cc.requests {
+			if now.Sub(entry.timestamp) > cc.ttl {
+				delete(cc.requests, key)
+			}
+		}
+		cc.mutex.Unlock()
+	}
 }
 
 // NewProxyService creates a new proxy service
@@ -363,10 +415,10 @@ func (s *ProxyService) processProxyRequest(ctx context.Context, w http.ResponseW
 		return NewNetworkError("proxy_request", targetURL, "failed to complete request after retries", err)
 	}
 	defer func() {
-	if err := resp.Body.Close(); err != nil {
-		Warn("Error closing response body", "error", err)
-	}
-}()
+		if err := resp.Body.Close(); err != nil {
+			Warn("Error closing response body", "error", err)
+		}
+	}()
 
 	// Update circuit breaker based on response
 	if resp.StatusCode < statusCodeServerError {

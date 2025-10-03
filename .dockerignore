@@ -1,14 +1,19 @@
-# Build artifacts
-github-copilot-svcs
-github-copilot-svcs-*
-*.exe
+# Git
+.git
+.gitignore
 
-# Go build cache
-.go-build-cache
+# Documentation
+README.md
+*.md
 
-# Test artifacts
-coverage.out
-coverage.html
+# Test files
+*_test.go
+test/
+
+# Docker files (not needed in container)
+Dockerfile
+docker-compose.yml
+.dockerignore
 
 # IDE files
 .vscode/
@@ -22,5 +27,5 @@ Thumbs.db
 *.tmp
 *.log
 
-# Config files (sensitive)
-config.json
+# Build artifacts (will be created in container)
+github-copilot-svcs

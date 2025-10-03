@@ -12,10 +12,10 @@ import (
 
 // Constants for configuration
 const (
-	configDirName     = ".local/share/github-copilot-svcs"
+	configDirName     = "config" // Changed to be Docker-mountable
 	configFileName    = "config.json"
 	defaultServerPort = 8081
-	dirPerm           = 0o700
+	dirPerm           = 0o755 // More permissive for Docker containers
 
 	// Default header values
 	defaultUserAgent            = "GitHubCopilotChat/0.29.1"
@@ -25,17 +25,17 @@ const (
 	defaultOpenaiIntent         = "conversation-edits"
 	defaultXInitiator           = "user"
 
-	// Timeout defaults
-	defaultHTTPClientTimeout     = 300
-	defaultServerReadTimeout     = 30
-	defaultServerWriteTimeout    = 300
-	defaultServerIdleTimeout     = 120
-	defaultProxyContextTimeout   = 300
-	defaultCircuitBreakerTimeout = 30
-	defaultKeepAliveTimeout      = 30
+	// Optimized timeout defaults for better performance
+	defaultHTTPClientTimeout     = 60  // Reduced for faster failover
+	defaultServerReadTimeout     = 10  // Reduced for better responsiveness
+	defaultServerWriteTimeout    = 120 // Increased for streaming responses
+	defaultServerIdleTimeout     = 60  // Reduced for better resource usage
+	defaultProxyContextTimeout   = 180 // Increased for long-running requests
+	defaultCircuitBreakerTimeout = 15  // Reduced for faster recovery
+	defaultKeepAliveTimeout      = 60  // Increased for connection reuse
 	defaultTLSHandshakeTimeout   = 10
-	defaultDialTimeout           = 10
-	defaultIdleConnTimeout       = 90
+	defaultDialTimeout           = 5  // Reduced for faster connections
+	defaultIdleConnTimeout       = 60 // Reduced for better resource cleanup
 
 	// Port validation
 	minPortNumber = 1
@@ -88,14 +88,26 @@ type Config struct {
 
 // GetConfigPath returns the path to the config file
 func GetConfigPath() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
+	// Use Docker-mountable location that works in containers
+	var dir string
+
+	// Check if we're in a container environment or if /app exists
+	if _, err := os.Stat("/app"); err == nil {
+		dir = "/app/config"
+	} else {
+		// Fallback to user's home directory for local development
+		usr, err := user.Current()
+		if err != nil {
+			return "", err
+		}
+		dir = filepath.Join(usr.HomeDir, configDirName)
+	}
+
+	// Create directory if it doesn't exist, but don't fail if it already exists
+	if err := os.MkdirAll(dir, dirPerm); err != nil && !os.IsExist(err) {
 		return "", err
 	}
-	dir := filepath.Join(usr.HomeDir, configDirName)
-	if err := os.MkdirAll(dir, dirPerm); err != nil {
-		return "", err
-	}
+
 	return filepath.Join(dir, configFileName), nil
 }
 

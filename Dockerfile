@@ -31,13 +31,13 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Switch to non-root user
 USER appuser
-WORKDIR /home/appuser/
+WORKDIR /app
 
 # Copy the binary from builder
 COPY --from=builder /app/github-copilot-svcs .
 
-# Create config directory for non-root user
-RUN mkdir -p /home/appuser/.local/share/github-copilot-svcs
+# Create config directory (optimized for Docker mounting)
+RUN mkdir -p /app/config
 
 # Expose the default port
 EXPOSE 8081

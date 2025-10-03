@@ -190,12 +190,12 @@ func TestCreateHTTPClient(t *testing.T) {
 			t.Fatal("Expected transport to be *http.Transport")
 		}
 
-		if transport.MaxIdleConns != 100 {
-			t.Errorf("Expected MaxIdleConns 100, got %d", transport.MaxIdleConns)
+		if transport.MaxIdleConns != 200 {
+			t.Errorf("Expected MaxIdleConns 200, got %d", transport.MaxIdleConns)
 		}
 
-		if transport.MaxIdleConnsPerHost != 20 {
-			t.Errorf("Expected MaxIdleConnsPerHost 20, got %d", transport.MaxIdleConnsPerHost)
+		if transport.MaxIdleConnsPerHost != 50 {
+			t.Errorf("Expected MaxIdleConnsPerHost 50, got %d", transport.MaxIdleConnsPerHost)
 		}
 	})
 
