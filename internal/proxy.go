@@ -391,6 +391,11 @@ func (s *ProxyService) processProxyRequest(ctx context.Context, w http.ResponseW
 	targetURL := copilotAPIBase + chatCompletionsPath
 	Debug("Sending request to target", "url", targetURL, "body_length", len(body))
 
+	// Debug: Log the request body for troubleshooting
+	if len(body) < 1000 { // Only log small requests to avoid flooding logs
+		Debug("Request body", "body", string(body))
+	}
+
 	req, err := http.NewRequestWithContext(ctx, r.Method, targetURL, bytes.NewBuffer(body))
 	if err != nil {
 		Error("Error creating request", "error", err)
@@ -407,6 +412,13 @@ func (s *ProxyService) processProxyRequest(ctx context.Context, w http.ResponseW
 	req.Header.Set("Copilot-Integration-Id", s.config.Headers.CopilotIntegrationID)
 	req.Header.Set("Openai-Intent", s.config.Headers.OpenaiIntent)
 	req.Header.Set("X-Initiator", s.config.Headers.XInitiator)
+
+	// Debug: Log the final headers being sent
+	authPrefix := s.config.CopilotToken
+	if len(authPrefix) > 10 {
+		authPrefix = authPrefix[:10] + "..."
+	}
+	Debug("Request headers", "authorization_prefix", authPrefix, "user_agent", s.config.Headers.UserAgent)
 
 	resp, err := s.makeRequestWithRetry(req, body)
 	if err != nil {
@@ -428,6 +440,25 @@ func (s *ProxyService) processProxyRequest(ctx context.Context, w http.ResponseW
 	}
 
 	Debug("Received response", "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"))
+
+	// If we got an error response, try to read and log the response body for debugging
+	if resp.StatusCode >= 400 {
+		errorRespBody, readErr := io.ReadAll(resp.Body)
+		if readErr == nil {
+			// Put the body back so it can be read again
+			resp.Body = io.NopCloser(bytes.NewBuffer(errorRespBody))
+			// Only log small error responses to avoid flooding logs
+			if len(errorRespBody) < 500 {
+				Debug("Error response body", "status", resp.StatusCode, "body", string(errorRespBody))
+			} else {
+				Debug("Error response body", "status", resp.StatusCode, "body_length", len(errorRespBody))
+			}
+		} else {
+			// If reading failed, try to put the original body back (though it might be consumed)
+			// This is best effort since we can't recreate the original body
+			Debug("Failed to read error response body for debugging", "error", readErr)
+		}
+	}
 
 	// Copy response headers
 	for key, values := range resp.Header {
