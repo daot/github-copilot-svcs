@@ -4,14 +4,11 @@ services:
     ports:
       - "8081:8081"
     environment:
-      # Server configuration
       - COPILOT_PORT=8081
       - LOG_LEVEL=info
-      # Performance optimizations
       - GOGC=200 # Reduce GC frequency for better performance
       - GOMAXPROCS=0 # Use all available CPU cores
     volumes:
-      # Mount config directory for persistent authentication (optimized path)
       - ./config:/app/config
     restart: unless-stopped
     healthcheck:
@@ -30,7 +27,6 @@ services:
       start_period: 40s
     networks:
       - copilot-network
-    # Performance and security optimizations
     deploy:
       resources:
         limits:
