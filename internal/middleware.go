@@ -271,12 +271,7 @@ func CompressionMiddleware() func(http.Handler) http.Handler {
 
 			// Create compression writer
 			crw := NewCompressionResponseWriter(w, r)
-			defer func() {
-				if err := crw.Close(); err != nil {
-					// Log error but don't fail the request
-					// The response has already been sent at this point
-				}
-			}()
+			defer crw.Close()
 
 			// Serve the request with compression
 			next.ServeHTTP(crw, r)
